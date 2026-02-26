@@ -1,0 +1,29 @@
+# Local dev: web (next dev) + ocr-worker
+# Usage: docker-compose up ocr-worker (web usually runs via pnpm dev on host)
+
+services:
+  web:
+    build: ./apps/web
+    # For local dev, prefer: cd apps/web && pnpm dev (no Docker)
+    command: pnpm dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    env_file:
+      - ./apps/web/.env.local
+    profiles:
+      - full
+
+  ocr-worker:
+    build: ./ocr-worker
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - TESSERACT_AVAILABLE=${TESSERACT_AVAILABLE:-false}
+      # SECURITY: Set OCR_API_KEY in production
+      - OCR_API_KEY=${OCR_API_KEY:-}
+    profiles:
+      - default

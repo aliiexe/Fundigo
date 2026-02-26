@@ -1,0 +1,4 @@
+[
+  { "service_name": "Example Streaming", "plan": "Basic", "amount": 9.99, "currency": "USD", "period": "monthly" },
+  { "service_name": "Cloud Storage", "plan": "Pro", "amount": 99, "currency": "USD", "period": "yearly" }
+]

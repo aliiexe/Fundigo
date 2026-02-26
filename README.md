@@ -1,36 +1,103 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fundigo — Your Personal Finance Companion
 
-## Getting Started
+Privacy-first personal finance: track income, subscriptions, expenses; smart allocation (spend / save / invest); goals; Moroccan subscription catalog (MAD). Built with Next.js (App Router), Clerk, and Supabase.
 
-First, run the development server:
+## Setup (step-by-step)
+
+### 1. Clone and install
+
+```bash
+git clone <repo-url>
+cd Fundigo
+npm install
+```
+
+### 2. Create Supabase project and tables
+
+1. Go to [supabase.com](https://supabase.com) and create a new project.
+2. In the Supabase dashboard, open **SQL Editor**.
+3. Copy the entire contents of **`db/schema.sql`** and paste into the SQL Editor.
+4. Click **Run**. This creates all tables: `users`, `income_sources`, `subscriptions`, `subscription_catalog`, `expenses`, `goals`, `allocations`, `audit_logs`, `jobs`, `categories`.  
+   **If you skip this step, the app and API will fail** (e.g. "relation does not exist").
+5. In **Settings → API**, copy your **Project URL** and **service_role** (secret) key. You will need these for `.env.local`.
+
+See **`db/README.md`** for more options (e.g. Supabase CLI).
+
+### 3. Create Clerk app
+
+1. Go to [dashboard.clerk.com](https://dashboard.clerk.com) and create an application.
+2. Copy the **Publishable key** and **Secret key** from the API Keys page.
+
+### 4. Environment variables
+
+**Important:** The app runs from the **project root** (`npm run dev`). Next.js loads env from the root directory, so **`.env.local` must be in the project root** (not only in `apps/web/`).
+
+```bash
+cp .env.example .env.local
+```
+
+Edit **`.env.local`** in the project root and set:
+
+- **NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY** — from Clerk
+- **CLERK_SECRET_KEY** — from Clerk
+- **SUPABASE_URL** — from Supabase (Project URL)
+- **SUPABASE_SECRET_KEY** — from Supabase (service_role key)
+- **MASTER_ENC_KEY** — run `openssl rand -base64 32` and paste the output
+
+**Do not commit `.env.local` to Git.**
+
+### 5. Seed the database (optional but recommended)
+
+This fills the **subscription_catalog** with Moroccan subscriptions (Netflix, Spotify, etc. in MAD) and creates a demo user with sample subscriptions:
+
+```bash
+npm run seed
+```
+
+The seed script reads `SUPABASE_URL` and `SUPABASE_SECRET_KEY` from `.env.local` in the project root (or from `apps/web/.env.local`).
+
+### 6. Run the app
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Sign up or sign in with Clerk; you’ll be redirected to the dashboard. Add income, subscriptions, expenses, and goals; use the allocation widget to get suggestions.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## What’s included
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Landing** — Hero, sign in / sign up (Clerk).
+- **Dashboard** — Income vs expenses summary, allocation widget (suggest + apply).
+- **Income** — List and add income sources (name, amount, frequency).
+- **Subscriptions** — List and add subscriptions; quick-add from catalog (MAD).
+- **Expenses** — List and add manual expenses (merchant, amount, date).
+- **Goals** — List and create goals (name, target, current, deadline) with progress bars.
+- **Settings** — Data export (rate-limited), account deletion (schedules purge job).
 
-## Learn More
+All data is stored in Supabase. Sensitive fields (e.g. expense merchant) are encrypted with **MASTER_ENC_KEY** (AES-256-GCM). Protected routes and API endpoints require a valid Clerk session.
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command       | Description                          |
+|---------------|--------------------------------------|
+| `npm run dev` | Start Next.js dev server             |
+| `npm run build` | Build for production               |
+| `npm run start` | Run production build                |
+| `npm run seed` | Seed catalog + demo user (uses .env.local) |
+| `npm run lint` | Run ESLint                          |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project structure
 
-## Deploy on Vercel
+- **app/** — Next.js App Router: pages and layout.
+- **app/api/v1/** — API routes: auth, me, income, subscriptions, expenses, goals, allocations, dashboard, catalog, data/export.
+- **lib/** — Supabase client, crypto, allocation logic, validators, auth helper.
+- **utils/** — Logger, rate limiter.
+- **db/schema.sql** — Full Postgres schema for Supabase.
+- **scripts/seed_morocco_demo.ts** — Seed script for catalog and demo user.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Security
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Do not commit `.env` or `.env.local`.
+- Rotate Clerk and Supabase keys before production.
+- Use GitHub Secrets / Vercel env vars for production.
+- See **docs/SECURITY_CHECKLIST.md** for a full checklist.

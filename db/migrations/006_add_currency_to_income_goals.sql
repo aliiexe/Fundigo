@@ -1,0 +1,2 @@
+ALTER TABLE income_sources ADD COLUMN IF NOT EXISTS currency text DEFAULT 'USD';
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS currency text DEFAULT 'USD';

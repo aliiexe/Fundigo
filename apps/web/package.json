@@ -1,0 +1,33 @@
+{
+  "name": "fundigo-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "jest --passWithNoTests"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^4.x",
+    "@sentry/nextjs": "^7.x",
+    "next": "14.x",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zod": "^3.22.0",
+    "@supabase/supabase-js": "^2.x"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.x",
+    "eslint-config-next": "14.x",
+    "jest": "^29.x",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.x"
+  }
+}
