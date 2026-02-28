@@ -161,60 +161,67 @@ export async function POST(request: Request) {
         ),
       });
     }
-    if (include.includes("income") && data.income.length > 0) {
+    const incomeRows = Array.isArray(data.income) ? data.income : [];
+    const subscriptionsRows = Array.isArray(data.subscriptions) ? data.subscriptions : [];
+    const expensesRows = Array.isArray(data.expenses) ? data.expenses : [];
+    const goalsRows = Array.isArray(data.goals) ? data.goals : [];
+    const allocationsRows = Array.isArray(data.allocations) ? data.allocations : [];
+    const transactionsRows = Array.isArray(data.transactions) ? data.transactions : [];
+
+    if (include.includes("income") && incomeRows.length > 0) {
       csvFiles.push({
         name: `income-${data.dateStr}.csv`,
-        content: toCsv(rowsToCsvRows(data.income as Record<string, unknown>[])),
+        content: toCsv(rowsToCsvRows(incomeRows as Record<string, unknown>[])),
       });
     }
-    if (include.includes("subscriptions") && data.subscriptions.length > 0) {
+    if (include.includes("subscriptions") && subscriptionsRows.length > 0) {
       csvFiles.push({
         name: `subscriptions-${data.dateStr}.csv`,
-        content: toCsv(rowsToCsvRows(data.subscriptions as Record<string, unknown>[])),
+        content: toCsv(rowsToCsvRows(subscriptionsRows as Record<string, unknown>[])),
       });
     }
-    if (include.includes("expenses") && data.expenses.length > 0) {
+    if (include.includes("expenses") && expensesRows.length > 0) {
       csvFiles.push({
         name: `expenses-${data.dateStr}.csv`,
-        content: toCsv(rowsToCsvRows(data.expenses as Record<string, unknown>[])),
+        content: toCsv(rowsToCsvRows(expensesRows as Record<string, unknown>[])),
       });
     }
-    if (include.includes("goals") && data.goals.length > 0) {
+    if (include.includes("goals") && goalsRows.length > 0) {
       csvFiles.push({
         name: `goals-${data.dateStr}.csv`,
-        content: toCsv(rowsToCsvRows(data.goals as Record<string, unknown>[])),
+        content: toCsv(rowsToCsvRows(goalsRows as Record<string, unknown>[])),
       });
     }
-    if (include.includes("allocations") && data.allocations.length > 0) {
+    if (include.includes("allocations") && allocationsRows.length > 0) {
       csvFiles.push({
         name: `allocations-${data.dateStr}.csv`,
-        content: toCsv(rowsToCsvRows(data.allocations as Record<string, unknown>[])),
+        content: toCsv(rowsToCsvRows(allocationsRows as Record<string, unknown>[])),
       });
     }
-    if (include.includes("transactions") && data.transactions.length > 0) {
+    if (include.includes("transactions") && transactionsRows.length > 0) {
       csvFiles.push({
         name: `transactions-${data.dateStr}.csv`,
-        content: toCsv(rowsToCsvRows(data.transactions as Record<string, unknown>[])),
+        content: toCsv(rowsToCsvRows(transactionsRows as Record<string, unknown>[])),
       });
     }
 
     // Empty sections still get a header-only CSV so user has the file
-    if (include.includes("income") && data.income.length === 0) {
+    if (include.includes("income") && incomeRows.length === 0) {
       csvFiles.push({ name: `income-${data.dateStr}.csv`, content: toCsv([]) });
     }
-    if (include.includes("subscriptions") && data.subscriptions.length === 0) {
+    if (include.includes("subscriptions") && subscriptionsRows.length === 0) {
       csvFiles.push({ name: `subscriptions-${data.dateStr}.csv`, content: toCsv([]) });
     }
-    if (include.includes("expenses") && data.expenses.length === 0) {
+    if (include.includes("expenses") && expensesRows.length === 0) {
       csvFiles.push({ name: `expenses-${data.dateStr}.csv`, content: toCsv([]) });
     }
-    if (include.includes("goals") && data.goals.length === 0) {
+    if (include.includes("goals") && goalsRows.length === 0) {
       csvFiles.push({ name: `goals-${data.dateStr}.csv`, content: toCsv([]) });
     }
-    if (include.includes("allocations") && data.allocations.length === 0) {
+    if (include.includes("allocations") && allocationsRows.length === 0) {
       csvFiles.push({ name: `allocations-${data.dateStr}.csv`, content: toCsv([]) });
     }
-    if (include.includes("transactions") && data.transactions.length === 0) {
+    if (include.includes("transactions") && transactionsRows.length === 0) {
       csvFiles.push({ name: `transactions-${data.dateStr}.csv`, content: toCsv([]) });
     }
 
