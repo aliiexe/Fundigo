@@ -28,6 +28,8 @@ const CURRENCY_OPTIONS = SUPPORTED_CURRENCIES.map((c) => ({
 export default function SubscriptionsPage() {
   const [list, setList] = useState<Sub[]>([]);
   const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [catalogRegionName, setCatalogRegionName] = useState<string | null>(null);
+  const [catalogIsFallback, setCatalogIsFallback] = useState(false);
   const [search, setSearch] = useState("");
   const [catalogSearch, setCatalogSearch] = useState("");
 
@@ -55,17 +57,20 @@ export default function SubscriptionsPage() {
     Promise.all([
       fetch("/api/v1/me", noCache).then((r) => (r.ok ? r.json() : null)),
       fetch("/api/v1/subscriptions", noCache).then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/v1/catalog", noCache).then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/v1/catalog", noCache).then((r) => (r.ok ? r.json() : { catalog: [] })),
       fetch("/api/v1/rates", noCache).then((r) => (r.ok ? r.json() : null)),
     ])
-      .then(([me, subs, cat, ratesData]) => {
+      .then(([me, subs, catRes, ratesData]) => {
         if (me?.preferred_currency) {
           setCurrency(me.preferred_currency);
           setFormCurrency(me.preferred_currency);
         }
         if (ratesData?.rates) setRates(ratesData.rates);
         setList(subs);
+        const cat = Array.isArray(catRes) ? catRes : (catRes?.catalog ?? []);
         setCatalog(cat);
+        setCatalogRegionName(Array.isArray(catRes) ? null : catRes?.catalog_region_name ?? null);
+        setCatalogIsFallback(Array.isArray(catRes) ? false : !!catRes?.is_fallback);
       })
       .catch(() => toast.error("Failed to load subscriptions"))
       .finally(() => setPageLoading(false));
@@ -304,10 +309,15 @@ export default function SubscriptionsPage() {
             <p className="text-[#525252] text-sm">Loading catalog for your country…</p>
           ) : catalog.length === 0 ? (
             <p className="text-[#525252] text-sm">
-              No catalog plans for your country. Set your country in <Link href="/dashboard/settings" className="text-[#FF4000] hover:underline">Settings</Link> to see plans for your region, or add subscriptions manually above.
+              Set your country in <Link href="/dashboard/settings" className="text-[#FF4000] hover:underline">Settings</Link> to see subscription plans for your region, or add subscriptions manually above.
             </p>
           ) : (
             <>
+              {catalogIsFallback && catalogRegionName && (
+                <p className="text-[#737373] text-xs mb-2">
+                  Showing plans from {catalogRegionName} (closest match for your region). Prices may vary.
+                </p>
+              )}
               <input
                 type="text"
                 className="input-field mb-3"

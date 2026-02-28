@@ -42,7 +42,6 @@ export const SUPPORTED_COUNTRIES = [
   { code: "MR", name: "Mauritania", flag: "🇲🇷" },
   { code: "MU", name: "Mauritius", flag: "🇲🇺" },
   { code: "YT", name: "Mayotte", flag: "🇾🇹" },
-  { code: "MA", name: "Morocco", flag: "🇲🇦" },
   { code: "MZ", name: "Mozambique", flag: "🇲🇿" },
   { code: "NA", name: "Namibia", flag: "🇳🇦" },
   { code: "NE", name: "Niger", flag: "🇳🇪" },
