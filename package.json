@@ -13,6 +13,7 @@
     "@clerk/nextjs": "^6.38.2",
     "@clerk/themes": "^2.4.55",
     "@supabase/supabase-js": "2.45.4",
+    "@vercel/analytics": "^1.6.1",
     "framer-motion": "^12.34.3",
     "jszip": "^3.10.1",
     "next": "^15.0.0",

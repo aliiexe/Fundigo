@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/next"
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -75,6 +76,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Toaster theme="dark" position="bottom-right" richColors closeButton />
         </body>
       </html>
+      <Analytics />
     </ClerkProvider>
   );
 }

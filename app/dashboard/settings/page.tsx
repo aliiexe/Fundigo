@@ -145,7 +145,7 @@ export default function SettingsPage() {
         <div className="p-5">
           <h2 className="text-base font-medium text-[#e8e8e8] mb-1">Account</h2>
           <p className="text-[#525252] text-sm">
-            Manage your account (email, password) via Clerk. Use the profile button in the top right.
+            Manage your account (email, password) via Clerk. Use the profile button in the bottom left.
           </p>
         </div>
       </div>
