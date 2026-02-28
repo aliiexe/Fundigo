@@ -67,7 +67,6 @@ const COUNTRY_TO_REGION: Record<string, CatalogRegion> = {
   GA: "FR",
   CG: "FR",
   CD: "FR",
-  MG: "FR",
   RE: "FR",
   YT: "FR",
   MC: "FR",
@@ -192,8 +191,6 @@ const COUNTRY_TO_REGION: Record<string, CatalogRegion> = {
   BT: "US",
   MV: "US",
   BN: "US",
-  QA: "AE",
-  OM: "AE",
 
   // UK / Ireland / Malta / Cyprus — GB
   IE: "GB",
