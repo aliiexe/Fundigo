@@ -3,6 +3,16 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
+import {
+  EXPORT_SECTIONS,
+  EXPORT_SECTION_LABELS,
+  getStoredExportOptions,
+  setStoredExportOptions,
+  DEFAULT_EXPORT_OPTIONS,
+  type ExportFormat,
+  type ExportSection,
+} from "@/lib/exportData";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
 export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
@@ -11,6 +21,13 @@ export default function SettingsPage() {
   const [startingBalance, setStartingBalance] = useState("");
   const [savingCurrency, setSavingCurrency] = useState(false);
   const [savingBalance, setSavingBalance] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>(() => getStoredExportOptions()?.format ?? DEFAULT_EXPORT_OPTIONS.format);
+  const [exportInclude, setExportInclude] = useState<ExportSection[]>(() => getStoredExportOptions()?.include ?? DEFAULT_EXPORT_OPTIONS.include);
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+
+  useEffect(() => {
+    setStoredExportOptions({ format: exportFormat, include: exportInclude });
+  }, [exportFormat, exportInclude]);
 
   useEffect(() => {
     fetch("/api/v1/me")
@@ -55,13 +72,46 @@ export default function SettingsPage() {
       .finally(() => setSavingBalance(false));
   };
 
+  const toggleExportSection = (section: ExportSection) => {
+    setExportInclude((prev) =>
+      prev.includes(section)
+        ? prev.filter((s) => s !== section)
+        : [...prev, section]
+    );
+  };
+
+  const selectAllExportSections = (on: boolean) => {
+    setExportInclude(on ? [...EXPORT_SECTIONS] : []);
+  };
+
   const handleExport = async () => {
+    if (exportInclude.length === 0) {
+      toast.error("Select at least one data type to export.");
+      return;
+    }
     setExporting(true);
     try {
-      const res = await fetch("/api/v1/data/export", { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (res.ok) toast.success("Export queued. You'll receive your data when ready.");
-      else toast.error(data.error || "Export failed.");
+      const res = await fetch("/api/v1/data/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format: exportFormat, include: exportInclude }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Export failed.");
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?([^";]+)"?/);
+      const filename = match?.[1] ?? (exportFormat === "json" ? "fundigo-export.json" : "fundigo-export.zip");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Download started.");
     } catch {
       toast.error("Export failed.");
     } finally {
@@ -69,14 +119,15 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDelete = () => {
-    if (!confirm("Permanently delete your account and all data? This cannot be undone.")) return;
+  const handleDeleteConfirm = () => {
     setDeleting(true);
     fetch("/api/v1/me/delete", { method: "DELETE" })
       .then((r) => r.json().catch(() => ({})))
       .then((data) => {
-        if (data.message) toast.success("Account deletion scheduled. Sign out to complete.");
-        else toast.error(data.error || "Delete failed.");
+        if (data.message) {
+          toast.success("Account deletion scheduled. Sign out to complete.");
+          setDeleteAccountOpen(false);
+        } else toast.error(data.error || "Delete failed.");
       })
       .catch(() => toast.error("Delete failed."))
       .finally(() => setDeleting(false));
@@ -160,13 +211,68 @@ export default function SettingsPage() {
       {/* Export & Delete */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="card">
-          <div className="p-5 space-y-3">
+          <div className="p-5 space-y-4">
             <div>
               <h2 className="text-base font-medium text-[#e8e8e8] mb-1">Data export</h2>
-              <p className="text-[#525252] text-xs">Download all your data as a ZIP file.</p>
+              <p className="text-[#525252] text-xs">Choose format and which data to download.</p>
             </div>
-            <button type="button" onClick={handleExport} disabled={exporting} className="btn-secondary text-sm w-full">
-              {exporting ? "Requesting…" : "Export my data"}
+            <div className="space-y-2">
+              <span className="text-xs text-[#737373] block">Format</span>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    checked={exportFormat === "json"}
+                    onChange={() => setExportFormat("json")}
+                    className="rounded-full border-[#404040] bg-[#111111] text-[#FF4000] focus:ring-[#FF4000]"
+                  />
+                  <span className="text-sm text-[#e8e8e8]">JSON</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="exportFormat"
+                    checked={exportFormat === "csv"}
+                    onChange={() => setExportFormat("csv")}
+                    className="rounded-full border-[#404040] bg-[#111111] text-[#FF4000] focus:ring-[#FF4000]"
+                  />
+                  <span className="text-sm text-[#e8e8e8]">CSV</span>
+                </label>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[#737373]">Include</span>
+                <button
+                  type="button"
+                  onClick={() => selectAllExportSections(exportInclude.length < EXPORT_SECTIONS.length)}
+                  className="text-xs text-[#FF4000] hover:underline"
+                >
+                  {exportInclude.length === EXPORT_SECTIONS.length ? "Deselect all" : "Select all"}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                {EXPORT_SECTIONS.map((section) => (
+                  <label key={section} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={exportInclude.includes(section)}
+                      onChange={() => toggleExportSection(section)}
+                      className="rounded border-[#404040] bg-[#111111] text-[#FF4000] focus:ring-[#FF4000]"
+                    />
+                    <span className="text-sm text-[#e8e8e8]">{EXPORT_SECTION_LABELS[section]}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting || exportInclude.length === 0}
+              className="btn-secondary text-sm w-full disabled:opacity-50"
+            >
+              {exporting ? "Preparing…" : "Export my data"}
             </button>
           </div>
         </div>
@@ -179,7 +285,7 @@ export default function SettingsPage() {
             </div>
             <button
               type="button"
-              onClick={handleDelete}
+              onClick={() => setDeleteAccountOpen(true)}
               disabled={deleting}
               className="w-full px-5 py-2.5 rounded-xl text-sm font-medium bg-[#ef4444]/10 text-[#ef4444] hover:bg-[#ef4444]/20 disabled:opacity-50 transition-colors"
             >
@@ -188,6 +294,16 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={deleteAccountOpen}
+        onClose={() => setDeleteAccountOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete account"
+        message="Permanently delete your account and all data? This cannot be undone."
+        confirmLabel="Delete account"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   );
 }

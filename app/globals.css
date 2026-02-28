@@ -3,34 +3,48 @@
 @tailwind utilities;
 
 :root {
-  --bg: #050505;
-  --bg-card: #111111;
-  --bg-elevated: #191919;
-  --border: #1e1e1e;
-  --border-hover: #2a2a2a;
-  --text: #e8e8e8;
-  --text-muted: #737373;
-  --text-dim: #525252;
+  --bg: #0B0B0D;
+  --bg-card: #141415;
+  --bg-elevated: #1A1A1B;
+  --border: #252527;
+  --border-hover: #2e2e30;
+  --text: #FFFFFF;
+  --text-muted: #BDBDBD;
+  --text-dim: #8a8a8c;
   --accent: #FF4000;
-  --accent-hover: #FF5C26;
-  --accent-muted: rgba(255, 64, 0, 0.12);
-  --accent-glow: rgba(255, 64, 0, 0.06);
+  --accent-hover: #FF9A4D;
+  --accent-muted: rgba(255, 106, 0, 0.12);
+  --accent-glow: rgba(255, 106, 0, 0.08);
   --success: #10b981;
   --danger: #ef4444;
   --warn: #f59e0b;
+  --focus-ring: 0 0 0 3px var(--accent-muted);
 }
 
 * { box-sizing: border-box; margin: 0; }
 
 html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-plus-jakarta), -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   letter-spacing: -0.011em;
+}
+
+/* Focus visible for accessibility (keyboard) */
+:focus { outline: none; }
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+button:focus-visible, a:focus-visible, [tabindex="0"]:focus-visible {
+  border-radius: 0.5rem;
 }
 
 ::selection { background: var(--accent); color: white; }
@@ -51,10 +65,26 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   border-color: var(--accent) !important;
   outline: none !important;
-  box-shadow: 0 0 0 3px var(--accent-muted) !important;
+  box-shadow: var(--focus-ring) !important;
 }
 input::placeholder, textarea::placeholder { color: var(--text-dim) !important; }
 option { background: var(--bg-card); color: var(--text); }
+
+/* Radio and checkbox: app accent, dark border (no default blue) */
+input[type="radio"],
+input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+}
+input[type="radio"] {
+  border-radius: 9999px;
+}
+input[type="checkbox"] {
+  border-radius: 0.25rem;
+}
 
 /* --- Animations --- */
 @keyframes fade-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -63,6 +93,8 @@ option { background: var(--bg-card); color: var(--text); }
 @keyframes glow-pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.7; } }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-16px); } }
 @keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes gradient-shift { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.8; } }
 
 .animate-fade-in { animation: fade-in 0.4s ease-out both; }
 .animate-fade-in-slow { animation: fade-in-slow 0.6s ease-out both; }
@@ -93,6 +125,7 @@ option { background: var(--bg-card); color: var(--text); }
 }
 .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
 .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+.btn-primary:focus-visible { box-shadow: var(--focus-ring); }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .btn-secondary {
@@ -121,9 +154,15 @@ option { background: var(--bg-card); color: var(--text); }
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  transition: border-color 0.15s;
+  border-radius: 1rem;
+  transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
 }
+.card:hover {
+  border-color: var(--border-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.5);
+}
+.card-accent:hover { border-color: rgba(255, 64, 0, 0.3); box-shadow: 0 12px 40px -12px rgba(255, 64, 0, 0.15); }
 
 .input-field {
   @apply block w-full rounded-lg px-3.5 py-2 text-sm;

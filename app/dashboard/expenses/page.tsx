@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { formatCurrency, SUPPORTED_CURRENCIES, DEFAULT_CURRENCY } from "@/lib/currency";
 import { convertSync } from "@/lib/exchange";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { SearchInput } from "@/components/ui/SearchInput";
 
@@ -43,6 +44,8 @@ export default function ExpensesPage() {
 
   const [editItem, setEditItem] = useState<Expense | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; itemName: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [editMerchant, setEditMerchant] = useState("");
   const [editAmount, setEditAmount] = useState("");
   const [editCurrency, setEditCurrency] = useState(DEFAULT_CURRENCY);
@@ -50,6 +53,21 @@ export default function ExpensesPage() {
   const [editCategory, setEditCategory] = useState("");
 
   const [rates, setRates] = useState<Record<string, number>>({});
+  const [scanModalOpen, setScanModalOpen] = useState(false);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanParsed, setScanParsed] = useState<{
+    merchant: string;
+    amount: number;
+    date: string;
+    currency: string;
+    items: string[];
+  } | null>(null);
+  const [scanMerchant, setScanMerchant] = useState("");
+  const [scanAmount, setScanAmount] = useState("");
+  const [scanDate, setScanDate] = useState("");
+  const [scanCurrency, setScanCurrency] = useState(DEFAULT_CURRENCY);
+  const [scanCategory, setScanCategory] = useState("");
 
   const load = useCallback(() => {
     setPageLoading(true);
@@ -103,12 +121,17 @@ export default function ExpensesPage() {
           date: date || undefined,
         }),
       });
-      if (!res.ok) throw new Error("Failed to add expense");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || data.details?.formErrors?.[0] || "Failed to add expense");
+        return;
+      }
       toast.success("Expense added");
       resetForm();
       setModalOpen(false);
-      load();
-    } catch {
+      await load();
+    } catch (err) {
+      console.error(err);
       toast.error("Failed to add expense");
     } finally {
       setLoading(false);
@@ -155,15 +178,132 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleDelete = async (id: string, itemName: string) => {
-    if (!confirm(`Delete "${itemName}"? This cannot be undone.`)) return;
+  const handleScanFile = async (file: File) => {
+    const validTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!validTypes.includes(file.type)) {
+      toast.error("Please use a JPEG, PNG, WebP, or GIF image.");
+      return;
+    }
+    setScanError(null);
+    setScanParsed(null);
+    setScanLoading(true);
     try {
-      const res = await fetch(`/api/v1/expenses/${id}`, { method: "DELETE" });
+      const formData = new FormData();
+      formData.set("image", file);
+      const res = await fetch("/api/v1/expenses/receipt/parse", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setScanError(data.error || "Upload failed. Try again.");
+        return;
+      }
+      if (data.parsed) {
+        setScanParsed(data.parsed);
+        setScanMerchant(data.parsed.merchant);
+        setScanAmount(String(data.parsed.amount));
+        setScanDate(data.parsed.date);
+        setScanCurrency(data.parsed.currency || currency);
+        setScanCategory("");
+      } else {
+        setScanError(data.error || "Something went wrong. You can still add the expense manually below.");
+      }
+    } catch {
+      setScanError("Upload failed. Try again.");
+    } finally {
+      setScanLoading(false);
+    }
+  };
+
+  const toYYYYMMDD = (s: string): string | undefined => {
+    if (!s?.trim()) return undefined;
+    const trimmed = s.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    const m = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (m) {
+      const [, mm, dd, yy] = m;
+      const year = yy!.length === 2 ? `20${yy}` : yy!;
+      return `${year}-${mm!.padStart(2, "0")}-${dd!.padStart(2, "0")}`;
+    }
+    return undefined;
+  };
+
+  const handleScanSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const num = parseFloat(scanAmount);
+    if (!scanMerchant.trim()) {
+      toast.error("Please enter a merchant name.");
+      return;
+    }
+    if (isNaN(num) || num <= 0) {
+      toast.error("Please enter an amount greater than 0.");
+      return;
+    }
+    const dateVal = toYYYYMMDD(scanDate);
+    setLoading(true);
+    try {
+      const body: Record<string, unknown> = {
+        merchant: scanMerchant.trim(),
+        amount: num,
+        currency: scanCurrency,
+        category: scanCategory.trim() || undefined,
+        date: dateVal ?? new Date().toISOString().slice(0, 10),
+      };
+      if (scanParsed?.items?.length) {
+        body.raw_text = JSON.stringify({ source: "scan", items: scanParsed.items });
+      }
+      const res = await fetch("/api/v1/expenses/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data.error || data.details?.formErrors?.[0] || "Failed to add expense";
+        toast.error(msg);
+        return;
+      }
+      toast.success("Expense added from receipt.");
+      setScanModalOpen(false);
+      setScanParsed(null);
+      setScanMerchant("");
+      setScanAmount("");
+      setScanDate("");
+      setScanCategory("");
+      await load();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to add expense. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const closeScanModal = () => {
+    setScanModalOpen(false);
+    setScanError(null);
+    setScanParsed(null);
+    setScanLoading(false);
+  };
+
+  const handleDeleteClick = (id: string, itemName: string) => {
+    setDeleteConfirm({ id, itemName });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/v1/expenses/${deleteConfirm.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete expense");
       toast.success("Expense deleted");
+      setDeleteConfirm(null);
       load();
     } catch {
       toast.error("Failed to delete expense");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -188,6 +328,18 @@ export default function ExpensesPage() {
         </div>
         <div className="flex items-center gap-3">
           <MonthPicker value={month} onChange={setMonth} />
+          <button
+            type="button"
+            onClick={() => setScanModalOpen(true)}
+            className="btn-secondary flex items-center gap-1.5"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 13v7a2 2 0 01-2 2H7a2 2 0 01-2-2v-7" />
+            </svg>
+            Scan receipt
+          </button>
           <button onClick={() => { resetForm(); setModalOpen(true); }} className="btn-primary">
             + Add expense
           </button>
@@ -240,7 +392,7 @@ export default function ExpensesPage() {
                             <button onClick={() => openEdit(exp)} className="w-7 h-7 rounded-md text-[#525252] hover:text-[#e8e8e8] hover:bg-[#191919] transition-all flex items-center justify-center" title="Edit">
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             </button>
-                            <button onClick={() => handleDelete(exp.id, exp.merchant)} className="w-7 h-7 rounded-md text-[#525252] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-all flex items-center justify-center" title="Delete">
+                            <button onClick={() => handleDeleteClick(exp.id, exp.merchant)} className="w-7 h-7 rounded-md text-[#525252] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-all flex items-center justify-center" title="Delete">
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                           </div>
@@ -326,6 +478,135 @@ export default function ExpensesPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Scan receipt / document modal */}
+      <Modal open={scanModalOpen} onClose={closeScanModal} title="Scan receipt or document" wide>
+        {!scanParsed ? (
+          <div className="space-y-4">
+            <p className="text-sm text-[#737373]">
+              Take a picture or upload a photo of a receipt, invoice, or bill. We'll extract whatever we can (merchant, amount, date) for you to review and edit.
+            </p>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              id="scan-file-input"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleScanFile(f);
+                e.target.value = "";
+              }}
+            />
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              capture="environment"
+              className="hidden"
+              id="scan-camera-input"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleScanFile(f);
+                e.target.value = "";
+              }}
+            />
+            <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${scanLoading ? "pointer-events-none opacity-60" : ""}`}>
+              <label
+                htmlFor="scan-camera-input"
+                className="flex items-center justify-center gap-3 border-2 border-[#404040] rounded-xl p-6 cursor-pointer hover:border-[#FF4000]/50 hover:bg-[#0a0a0a] transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-[#FF4000]/10 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-[#FF4000]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                  </svg>
+                </div>
+                <span className="text-sm font-medium text-[#e8e8e8]">Take a picture</span>
+              </label>
+              <label
+                htmlFor="scan-file-input"
+                className="flex items-center justify-center gap-3 border-2 border-dashed border-[#404040] rounded-xl p-6 cursor-pointer hover:border-[#FF4000]/50 hover:bg-[#0a0a0a] transition-colors"
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-[#FF4000]/50", "bg-[#0a0a0a]"); }}
+                onDragLeave={(e) => { e.preventDefault(); e.currentTarget.classList.remove("border-[#FF4000]/50", "bg-[#0a0a0a]"); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove("border-[#FF4000]/50", "bg-[#0a0a0a]");
+                  const f = e.dataTransfer.files?.[0];
+                  if (f) handleScanFile(f);
+                }}
+              >
+                <div className="w-10 h-10 rounded-full bg-[#FF4000]/10 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-[#FF4000]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16v12a2 2 0 002 2h12a2 2 0 002-2V16m-4-8l-4-4m0 0L8 8m4-4v12" />
+                  </svg>
+                </div>
+                <span className="text-sm font-medium text-[#e8e8e8]">Upload document</span>
+              </label>
+            </div>
+            {scanLoading && (
+              <div className="flex items-center justify-center gap-2 text-sm text-[#737373]">
+                <div className="w-4 h-4 border-2 border-[#FF4000] border-t-transparent rounded-full animate-spin" />
+                Reading document…
+              </div>
+            )}
+            {scanError && (
+              <p className="text-sm text-[#ef4444]">{scanError}</p>
+            )}
+          </div>
+        ) : (
+          <form onSubmit={handleScanSubmit} className="space-y-4">
+            <p className="text-sm text-[#10b981]">Data extracted. Review and edit if needed, then add the expense.</p>
+            {scanParsed.items.length > 0 && (
+              <div className="rounded-lg bg-[#0a0a0a] p-3">
+                <p className="text-xs font-medium text-[#737373] mb-1">Line items</p>
+                <ul className="text-xs text-[#a3a3a3] list-disc list-inside space-y-0.5">
+                  {scanParsed.items.slice(0, 8).map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                  {scanParsed.items.length > 8 && <li>…and {scanParsed.items.length - 8} more</li>}
+                </ul>
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <label className="block">
+                <span className="text-xs font-medium text-[#737373]">Merchant</span>
+                <input type="text" className="input-field" value={scanMerchant} onChange={(e) => setScanMerchant(e.target.value)} required />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-[#737373]">Amount</span>
+                <input type="number" step="0.01" min="0" className="input-field" value={scanAmount} onChange={(e) => setScanAmount(e.target.value)} required />
+              </label>
+              <Dropdown label="Currency" options={currencyOptions} value={scanCurrency} onChange={setScanCurrency} />
+              <label className="block">
+                <span className="text-xs font-medium text-[#737373]">Category (optional)</span>
+                <input type="text" className="input-field" placeholder="e.g. Food, Transport" value={scanCategory} onChange={(e) => setScanCategory(e.target.value)} />
+              </label>
+              <label className="block">
+                <span className="text-xs font-medium text-[#737373]">Date</span>
+                <input type="date" className="input-field" value={scanDate} onChange={(e) => setScanDate(e.target.value)} />
+              </label>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => { setScanParsed(null); setScanError(null); }} className="btn-ghost">
+                Scan another
+              </button>
+              <button type="button" onClick={closeScanModal} className="btn-ghost">Cancel</button>
+              <button type="submit" disabled={loading} className="btn-primary">
+                {loading ? "Adding…" : "Add expense"}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete expense"
+        message={deleteConfirm ? `Delete "${deleteConfirm.itemName}"? This cannot be undone.` : ""}
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   );
 }

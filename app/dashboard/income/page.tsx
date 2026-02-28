@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { formatCurrency, SUPPORTED_CURRENCIES, DEFAULT_CURRENCY } from "@/lib/currency";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { AllocationWidget } from "../AllocationWidget";
@@ -60,6 +61,8 @@ export default function IncomePage() {
   const [editAmount, setEditAmount] = useState("");
   const [editFrequency, setEditFrequency] = useState("monthly");
   const [editNote, setEditNote] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; itemName: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(() => {
     Promise.all([
@@ -162,15 +165,23 @@ export default function IncomePage() {
     }
   };
 
-  const handleDelete = async (id: string, itemName: string) => {
-    if (!confirm(`Delete "${itemName}"? This cannot be undone.`)) return;
+  const handleDeleteClick = (id: string, itemName: string) => {
+    setDeleteConfirm({ id, itemName });
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/v1/income/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/v1/income/${deleteConfirm.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed to delete income");
       toast.success("Income source deleted");
+      setDeleteConfirm(null);
       load();
     } catch {
       toast.error("Failed to delete income");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -262,7 +273,7 @@ export default function IncomePage() {
                     <button onClick={() => openEdit(i)} className="w-7 h-7 rounded-md text-[#525252] hover:text-[#e8e8e8] hover:bg-[#191919] transition-all flex items-center justify-center" title="Edit">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                     </button>
-                    <button onClick={() => handleDelete(i.id, i.name)} className="w-7 h-7 rounded-md text-[#525252] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-all flex items-center justify-center" title="Delete">
+                    <button onClick={() => handleDeleteClick(i.id, i.name)} className="w-7 h-7 rounded-md text-[#525252] hover:text-[#ef4444] hover:bg-[#ef4444]/10 transition-all flex items-center justify-center" title="Delete">
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>
@@ -348,6 +359,16 @@ export default function IncomePage() {
           onDone={() => { setAllocationOpen(false); load(); }}
         />
       </Modal>
+      <ConfirmDialog
+        open={!!deleteConfirm}
+        onClose={() => setDeleteConfirm(null)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete income source"
+        message={deleteConfirm ? `Delete "${deleteConfirm.itemName}"? This cannot be undone.` : ""}
+        confirmLabel="Delete"
+        variant="danger"
+        loading={deleting}
+      />
     </div>
   );
 }

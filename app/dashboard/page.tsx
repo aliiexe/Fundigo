@@ -3,6 +3,16 @@
 import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
+import {
+  EXPORT_SECTIONS,
+  EXPORT_SECTION_LABELS,
+  getStoredExportOptions,
+  setStoredExportOptions,
+  DEFAULT_EXPORT_OPTIONS,
+  type ExportFormat,
+  type ExportSection,
+} from "@/lib/exportData";
+import { Modal } from "@/components/ui/Modal";
 
 type Income = { id: string; name: string; amount: number; convertedAmount?: number; frequency: string; note?: string };
 type Expense = { id: string; merchant: string; amount: number; originalAmount?: number; originalCurrency?: string; date: string };
@@ -51,6 +61,14 @@ export default function DashboardPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recs, setRecs] = useState<Recommendation[]>([]);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>(() => getStoredExportOptions()?.format ?? DEFAULT_EXPORT_OPTIONS.format);
+  const [exportInclude, setExportInclude] = useState<ExportSection[]>(() => getStoredExportOptions()?.include ?? DEFAULT_EXPORT_OPTIONS.include);
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    setStoredExportOptions({ format: exportFormat, include: exportInclude });
+  }, [exportFormat, exportInclude]);
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -75,6 +93,50 @@ export default function DashboardPage() {
   }, [month]);
 
   useEffect(() => { load(); }, [load]);
+
+  const toggleExportSection = (section: ExportSection) => {
+    setExportInclude((prev) =>
+      prev.includes(section) ? prev.filter((s) => s !== section) : [...prev, section]
+    );
+  };
+  const selectAllExportSections = (on: boolean) => {
+    setExportInclude(on ? [...EXPORT_SECTIONS] : []);
+  };
+  const handleExport = async () => {
+    if (exportInclude.length === 0) {
+      toast.error("Select at least one data type to export.");
+      return;
+    }
+    setExporting(true);
+    try {
+      const res = await fetch("/api/v1/data/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format: exportFormat, include: exportInclude }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Export failed.");
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      const match = disposition?.match(/filename="?([^";]+)"?/);
+      const filename = match?.[1] ?? (exportFormat === "json" ? "fundigo-export.json" : "fundigo-export.zip");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Download started.");
+      setExportModalOpen(false);
+    } catch {
+      toast.error("Export failed.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   if (pageLoading || !data) {
     return (
@@ -110,15 +172,7 @@ export default function DashboardPage() {
           <button
             type="button"
             className="btn-secondary flex items-center gap-1.5"
-            onClick={async () => {
-              try {
-                const res = await fetch("/api/v1/data/export", { method: "POST" });
-                if (!res.ok) throw new Error("Export failed");
-                toast.success("Export started successfully");
-              } catch {
-                toast.error("Failed to export data");
-              }
-            }}
+            onClick={() => setExportModalOpen(true)}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -343,6 +397,74 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <Modal open={exportModalOpen} onClose={() => setExportModalOpen(false)} title="Export data" wide>
+        <div className="space-y-4">
+          <p className="text-sm text-[#737373]">Choose format and which data to include in the download.</p>
+          <div className="space-y-2">
+            <span className="text-xs text-[#737373] block">Format</span>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="exportFormat"
+                  checked={exportFormat === "json"}
+                  onChange={() => setExportFormat("json")}
+                  className="rounded-full border-[#404040] bg-[#111111]"
+                />
+                <span className="text-sm text-[#e8e8e8]">JSON</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="exportFormat"
+                  checked={exportFormat === "csv"}
+                  onChange={() => setExportFormat("csv")}
+                  className="rounded-full border-[#404040] bg-[#111111]"
+                />
+                <span className="text-sm text-[#e8e8e8]">CSV</span>
+              </label>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-[#737373]">Include</span>
+              <button
+                type="button"
+                onClick={() => selectAllExportSections(exportInclude.length < EXPORT_SECTIONS.length)}
+                className="text-xs text-[#FF4000] hover:underline"
+              >
+                {exportInclude.length === EXPORT_SECTIONS.length ? "Deselect all" : "Select all"}
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+              {EXPORT_SECTIONS.map((section) => (
+                <label key={section} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={exportInclude.includes(section)}
+                    onChange={() => toggleExportSection(section)}
+                    className="rounded border-[#404040] bg-[#111111]"
+                  />
+                  <span className="text-sm text-[#e8e8e8]">{EXPORT_SECTION_LABELS[section]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={() => setExportModalOpen(false)} className="btn-ghost">
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting || exportInclude.length === 0}
+              className="btn-primary disabled:opacity-50"
+            >
+              {exporting ? "Preparing…" : "Export"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

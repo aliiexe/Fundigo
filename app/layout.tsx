@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-plus-jakarta",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Fundigo — Smart Personal Finance",
@@ -18,52 +25,52 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         baseTheme: dark,
         variables: {
           colorPrimary: "#FF4000",
-          colorBackground: "#0a0a0a",
-          colorInputBackground: "#111111",
-          colorInputText: "#e8e8e8",
-          colorText: "#e8e8e8",
-          colorTextSecondary: "#737373",
+          colorBackground: "#0B0B0D",
+          colorInputBackground: "#141415",
+          colorInputText: "#FFFFFF",
+          colorText: "#FFFFFF",
+          colorTextSecondary: "#BDBDBD",
           colorDanger: "#ef4444",
           colorSuccess: "#10b981",
           colorWarning: "#f59e0b",
           borderRadius: "0.75rem",
-          fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif",
+          fontFamily: "var(--font-plus-jakarta), system-ui, sans-serif",
         },
         elements: {
-          card: "bg-[#0a0a0a] border border-[#1e1e1e] shadow-2xl shadow-black/50",
-          headerTitle: "text-[#e8e8e8]",
-          headerSubtitle: "text-[#737373]",
-          socialButtonsBlockButton: "bg-[#111111] border-[#1e1e1e] text-[#e8e8e8] hover:bg-[#191919] hover:border-[#2a2a2a]",
-          socialButtonsBlockButtonText: "text-[#e8e8e8]",
-          formFieldLabel: "text-[#737373]",
-          formFieldInput: "bg-[#111111] border-[#1e1e1e] text-[#e8e8e8] focus:border-[#FF4000] focus:ring-[#FF4000]/20",
-          formButtonPrimary: "bg-[#FF4000] hover:bg-[#FF5C26] text-white",
-          footerActionLink: "text-[#FF4000] hover:text-[#FF5C26]",
-          identityPreview: "bg-[#111111] border-[#1e1e1e]",
-          identityPreviewText: "text-[#e8e8e8]",
+          card: "bg-[#141415] border border-[#252527] shadow-2xl shadow-black/50",
+          headerTitle: "text-[#FFFFFF]",
+          headerSubtitle: "text-[#BDBDBD]",
+          socialButtonsBlockButton: "bg-[#1A1A1B] border-[#252527] text-[#FFFFFF] hover:bg-[#141415] hover:border-[#2e2e30]",
+          socialButtonsBlockButtonText: "text-[#FFFFFF]",
+          formFieldLabel: "text-[#BDBDBD]",
+          formFieldInput: "bg-[#141415] border-[#252527] text-[#FFFFFF] focus:border-[#FF4000] focus:ring-[#FF4000]/20",
+          formButtonPrimary: "bg-[#FF4000] hover:bg-[#FF9A4D] text-white",
+          footerActionLink: "text-[#FF4000] hover:text-[#FF9A4D]",
+          identityPreview: "bg-[#141415] border-[#252527]",
+          identityPreviewText: "text-[#FFFFFF]",
           identityPreviewEditButton: "text-[#FF4000]",
           formFieldAction: "text-[#FF4000]",
-          userButtonPopoverCard: "bg-[#0a0a0a] border border-[#1e1e1e]",
-          userButtonPopoverActionButton: "text-[#e8e8e8] hover:bg-[#191919]",
-          userButtonPopoverActionButtonText: "text-[#e8e8e8]",
-          userButtonPopoverActionButtonIcon: "text-[#525252]",
+          userButtonPopoverCard: "bg-[#0B0B0D] border border-[#252527]",
+          userButtonPopoverActionButton: "text-[#FFFFFF] hover:bg-[#1A1A1B]",
+          userButtonPopoverActionButtonText: "text-[#FFFFFF]",
+          userButtonPopoverActionButtonIcon: "text-[#8a8a8c]",
           userButtonPopoverFooter: "hidden",
-          userPreviewMainIdentifier: "text-[#e8e8e8]",
-          userPreviewSecondaryIdentifier: "text-[#737373]",
-          avatarBox: "ring-2 ring-[#1e1e1e]",
+          userPreviewMainIdentifier: "text-[#FFFFFF]",
+          userPreviewSecondaryIdentifier: "text-[#BDBDBD]",
+          avatarBox: "ring-2 ring-[#252527]",
           badge: "bg-[#FF4000]/10 text-[#FF4000]",
-          dividerLine: "bg-[#1e1e1e]",
-          dividerText: "text-[#525252]",
-          formFieldInputShowPasswordButton: "text-[#525252] hover:text-[#e8e8e8]",
-          otpCodeFieldInput: "bg-[#111111] border-[#1e1e1e] text-[#e8e8e8]",
-          alert: "bg-[#111111] border-[#1e1e1e]",
-          alertText: "text-[#e8e8e8]",
+          dividerLine: "bg-[#252527]",
+          dividerText: "text-[#8a8a8c]",
+          formFieldInputShowPasswordButton: "text-[#8a8a8c] hover:text-[#FFFFFF]",
+          otpCodeFieldInput: "bg-[#141415] border-[#252527] text-[#FFFFFF]",
+          alert: "bg-[#141415] border-[#252527]",
+          alertText: "text-[#FFFFFF]",
           modalBackdrop: "bg-black/70 backdrop-blur-sm",
         },
       }}
     >
       <html lang="en" className="dark">
-        <body className="antialiased min-h-screen">
+        <body className={`${plusJakarta.variable} font-sans antialiased min-h-screen`}>
           {children}
           <Toaster theme="dark" position="bottom-right" richColors closeButton />
         </body>

@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
+
 export const dynamic = "force-dynamic";
 import { getUserId } from "@/lib/auth";
-import { createServerClient } from "@/lib/supabase";
 import { getOrCreateUser } from "@/lib/user";
-import { encryptText } from "@/lib/crypto";
-import { parseReceiptImage } from "@/lib/ai";
+import { parseDocumentImage, type DocumentType } from "@/lib/ai";
+import { createServerClient } from "@/lib/supabase";
 import { checkRateLimit } from "@/utils/rateLimiter";
 
+/** POST: parse receipt/invoice image only; no expense created. Returns parsed data for review. */
 export async function POST(request: Request) {
   const forwarded =
     request.headers.get("x-forwarded-for") ??
@@ -16,6 +17,7 @@ export async function POST(request: Request) {
   if (!ok) {
     return NextResponse.json({ error: "Too many requests", retryAfter: 60 }, { status: 429 });
   }
+
   try {
     const userId = await getUserId();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -38,57 +40,27 @@ export async function POST(request: Request) {
       if (body?.image) base64Image = body.image;
     }
 
-    let parsed = {
-      merchant: "Unknown merchant",
-      amount: 0,
-      date: new Date().toISOString().slice(0, 10),
-      currency: u.preferred_currency || "USD",
-      items: [] as string[],
-    };
-    let aiUsed = false;
-
-    if (base64Image) {
-      const aiResult = await parseReceiptImage(base64Image);
-      if (aiResult) {
-        parsed = aiResult;
-        aiUsed = true;
-      }
+    if (!base64Image) {
+      return NextResponse.json({ error: "Missing image (send multipart 'image' or JSON { image: base64 })" }, { status: 400 });
     }
 
-    const merchantCipher = JSON.stringify(encryptText(parsed.merchant));
-    const { data: expense, error } = await supabase
-      .from("expenses")
-      .insert({
-        user_id: u.id,
-        merchant_cipher: merchantCipher,
+    const typeHeader = (request.headers.get("x-document-type") || "receipt").toLowerCase();
+    const docType: DocumentType =
+      typeHeader === "invoice" || typeHeader === "bill" ? typeHeader : "receipt";
+    const parsed = await parseDocumentImage(base64Image, docType);
+
+    return NextResponse.json({
+      parsed: {
+        merchant: parsed.merchant,
         amount: parsed.amount,
-        currency: parsed.currency,
         date: parsed.date,
-      })
-      .select("id")
-      .single();
-
-    if (error) throw error;
-
-    await supabase.from("audit_logs").insert({
-      user_id: u.id,
-      action: "receipt_upload",
-      meta: { expense_id: expense.id, ai_used: aiUsed, items: parsed.items },
-    });
-
-    return NextResponse.json(
-      {
-        expense_id: expense.id,
-        parsed,
-        ai_used: aiUsed,
-        message: aiUsed
-          ? "Parsed via AI — review the details"
-          : "No image provided or AI unavailable — add details manually",
+        currency: parsed.currency,
+        items: parsed.items,
       },
-      { status: 201 }
-    );
+      ai_used: true,
+    });
   } catch (e) {
-    console.error(e);
+    console.error("[receipt/parse]", e);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -1,12 +1,20 @@
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
+// Only use OpenRouter free-tier models (suffix :free). No paid API usage.
+const FREE_SUFFIX = ":free";
 const TEXT_MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
   "deepseek/deepseek-r1-0528:free",
   "google/gemma-3-27b-it:free",
   "mistralai/mistral-small-3.1-24b-instruct:free",
 ];
-const VISION_MODEL = "google/gemma-3-27b-it:free";
+// Free vision models from OpenRouter (0 price, support image input). IDs must match API exactly.
+const VISION_MODELS = [
+  "openrouter/free",                          // free router, picks an available free model
+  "nvidia/nemotron-nano-12b-v2-vl:free",      // OCR, document intelligence
+  "qwen/qwen3-vl-30b-a3b-thinking",           // VL model, 0 price (no :free suffix)
+  "google/gemma-3-27b-it:free",               // text+image, free
+];
 
 function getApiKey(): string | null {
   return process.env.OPENROUTER_API_KEY || null;
@@ -60,6 +68,7 @@ async function chat(messages: Message[], opts: ChatOptions = {}): Promise<string
   const key = getApiKey();
   if (!key) return null;
 
+  // Use provided model (from our VISION_MODELS or TEXT_MODELS) or default text models
   const models = opts.model ? [opts.model] : TEXT_MODELS;
 
   for (const model of models) {
@@ -76,7 +85,7 @@ async function chat(messages: Message[], opts: ChatOptions = {}): Promise<string
   return null;
 }
 
-// ── Receipt parsing via vision model ──────────────────────────────────────
+// ── Receipt / document parsing via vision model ─────────────────────────────
 
 export type ParsedReceipt = {
   merchant: string;
@@ -86,47 +95,96 @@ export type ParsedReceipt = {
   items: string[];
 };
 
-export async function parseReceiptImage(base64Image: string): Promise<ParsedReceipt | null> {
+export type DocumentType = "receipt" | "invoice" | "bill";
+
+const RECEIPT_PROMPT =
+  'You are a receipt parser. From the receipt image extract: (1) merchant/store name at the top or in the logo, (2) total amount (look for "Total", "Purchase Amount", "Amount Due", "TOTAL" — the final amount the customer paid), (3) date (convert to YYYY-MM-DD; if you see MM/DD/YY use 20YY for the year), (4) currency (USD if $ or no symbol), (5) line items (product names, optional). Respond with ONLY valid JSON, no other text: {"merchant":"...","amount":0.00,"date":"YYYY-MM-DD","currency":"USD","items":["item1",...]}. Use defaults only for truly unreadable fields: merchant "Unknown", amount 0, date today, currency "USD", items [].';
+
+const INVOICE_PROMPT =
+  'You are an invoice parser. Extract whatever you can from the image: vendor/payee, total amount, date, currency, line items. Image quality may vary — extract what is readable. Always respond with ONLY valid JSON: {"merchant":"...","amount":0.00,"date":"YYYY-MM-DD","currency":"USD","items":[]}. Use "merchant" for vendor/payee. Defaults for missing: merchant "Unknown", amount 0, date today YYYY-MM-DD, currency "USD", items []. Never refuse; always return this JSON.';
+
+const BILL_PROMPT =
+  'You are a bill parser. Extract payee, amount, date, currency from the image. Extract whatever is readable; use defaults for the rest. Always respond with ONLY valid JSON: {"merchant":"...","amount":0.00,"date":"YYYY-MM-DD","currency":"USD","items":[]}. Defaults: merchant "Unknown", amount 0, date today, currency "USD", items []. Never refuse; always return this JSON.';
+
+const DEFAULT_PARSED: ParsedReceipt = {
+  merchant: "Unknown",
+  amount: 0,
+  date: new Date().toISOString().slice(0, 10),
+  currency: "USD",
+  items: [],
+};
+
+function parseDate(value: unknown): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const s = String(value || "").trim();
+  if (!s) return today;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const mmddyy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (mmddyy) {
+    const [, mm, dd, yy] = mmddyy;
+    const year = yy!.length === 2 ? `20${yy}` : yy!;
+    return `${year}-${mm!.padStart(2, "0")}-${dd!.padStart(2, "0")}`;
+  }
+  return today;
+}
+
+function normalizeParsed(parsed: Record<string, unknown>): ParsedReceipt {
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    merchant: String(parsed.merchant || "Unknown").trim() || "Unknown",
+    amount: Number(parsed.amount) || 0,
+    date: parseDate(parsed.date) || today,
+    currency: String(parsed.currency || "USD").toUpperCase().slice(0, 3),
+    items: Array.isArray(parsed.items) ? parsed.items.map(String) : [],
+  };
+}
+
+export async function parseReceiptImage(base64Image: string): Promise<ParsedReceipt> {
+  return parseDocumentImage(base64Image, "receipt");
+}
+
+/** Parse a document image (receipt, invoice, or bill). Always returns at least default data so the user can edit and submit. */
+export async function parseDocumentImage(
+  base64Image: string,
+  docType: DocumentType = "receipt"
+): Promise<ParsedReceipt> {
   const dataUrl = base64Image.startsWith("data:")
     ? base64Image
     : `data:image/jpeg;base64,${base64Image}`;
 
-  const result = await chat(
-    [
-      {
-        role: "system",
-        content:
-          'You are a receipt parser. Extract merchant name, total amount, date, currency, and line items from the receipt image. Respond ONLY with valid JSON: {"merchant":"...","amount":0.00,"date":"YYYY-MM-DD","currency":"USD","items":["item1","item2"]}. If you cannot parse a field, use reasonable defaults (merchant: "Unknown", amount: 0, date: today, currency: "USD", items: []).',
-      },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: "Parse this receipt:" },
-          { type: "image_url", image_url: { url: dataUrl } },
-        ],
-      },
-    ],
-    { model: VISION_MODEL, temperature: 0.1, max_tokens: 512 }
-  );
+  const prompt =
+    docType === "invoice" ? INVOICE_PROMPT : docType === "bill" ? BILL_PROMPT : RECEIPT_PROMPT;
+  const label = docType === "receipt" ? "receipt" : docType === "invoice" ? "invoice" : "bill";
 
-  if (!result) return null;
+  const messages: Message[] = [
+    { role: "system", content: prompt },
+    {
+      role: "user",
+      content: [
+        { type: "text", text: `Parse this ${label}. Extract whatever you can:` },
+        { type: "image_url", image_url: { url: dataUrl } },
+      ],
+    },
+  ];
+
+  const opts = { temperature: 0.1, max_tokens: 512 };
+  let result: string | null = null;
+
+  for (const model of VISION_MODELS) {
+    result = await chat(messages, { ...opts, model });
+    if (result) break;
+  }
+
+  if (!result) return { ...DEFAULT_PARSED, date: new Date().toISOString().slice(0, 10) };
 
   try {
     const jsonMatch = result.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return null;
-    const parsed = JSON.parse(jsonMatch[0]);
-    return {
-      merchant: String(parsed.merchant || "Unknown"),
-      amount: Number(parsed.amount) || 0,
-      date: parsed.date && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date)
-        ? parsed.date
-        : new Date().toISOString().slice(0, 10),
-      currency: String(parsed.currency || "USD").toUpperCase(),
-      items: Array.isArray(parsed.items) ? parsed.items.map(String) : [],
-    };
+    if (!jsonMatch) return { ...DEFAULT_PARSED, date: new Date().toISOString().slice(0, 10) };
+    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    return normalizeParsed(parsed);
   } catch {
-    console.error("[AI] Failed to parse receipt JSON:", result);
-    return null;
+    console.error("[AI] Failed to parse document JSON, using defaults:", result?.slice(0, 100));
+    return { ...DEFAULT_PARSED, date: new Date().toISOString().slice(0, 10) };
   }
 }
 
