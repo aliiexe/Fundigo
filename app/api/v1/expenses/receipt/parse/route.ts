@@ -6,6 +6,7 @@ import { getOrCreateUser } from "@/lib/user";
 import { parseDocumentImage, type DocumentType } from "@/lib/ai";
 import { createServerClient } from "@/lib/supabase";
 import { checkRateLimit } from "@/utils/rateLimiter";
+import { resizeForReceipt } from "@/lib/imageResize";
 
 /** POST: parse receipt/invoice image only; no expense created. Returns parsed data for review. */
 export async function POST(request: Request) {
@@ -33,11 +34,16 @@ export async function POST(request: Request) {
       const file = formData.get("image") as File | null;
       if (file) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        base64Image = buffer.toString("base64");
+        base64Image = await resizeForReceipt(buffer);
       }
     } else {
       const body = await request.json().catch(() => null);
-      if (body?.image) base64Image = body.image;
+      if (body?.image) {
+        let raw = (body.image as string).trim();
+        if (raw.startsWith("data:")) raw = raw.replace(/^data:image\/[^;]+;base64,/, "");
+        const buffer = Buffer.from(raw, "base64");
+        base64Image = await resizeForReceipt(buffer);
+      }
     }
 
     if (!base64Image) {
@@ -47,6 +53,7 @@ export async function POST(request: Request) {
     const typeHeader = (request.headers.get("x-document-type") || "receipt").toLowerCase();
     const docType: DocumentType =
       typeHeader === "invoice" || typeHeader === "bill" ? typeHeader : "receipt";
+
     const parsed = await parseDocumentImage(base64Image, docType);
 
     return NextResponse.json({

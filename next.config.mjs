@@ -5,6 +5,8 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Tesseract.js uses a Node worker; Next must not bundle it so the worker path resolves
+  serverExternalPackages: ["tesseract.js"],
 };
 
 export default nextConfig;

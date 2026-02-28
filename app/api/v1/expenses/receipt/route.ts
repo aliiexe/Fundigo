@@ -5,6 +5,7 @@ import { createServerClient } from "@/lib/supabase";
 import { getOrCreateUser } from "@/lib/user";
 import { encryptText } from "@/lib/crypto";
 import { parseReceiptImage } from "@/lib/ai";
+import { resizeForReceipt } from "@/lib/imageResize";
 import { checkRateLimit } from "@/utils/rateLimiter";
 
 export async function POST(request: Request) {
@@ -31,11 +32,15 @@ export async function POST(request: Request) {
       const file = formData.get("image") as File | null;
       if (file) {
         const buffer = Buffer.from(await file.arrayBuffer());
-        base64Image = buffer.toString("base64");
+        base64Image = await resizeForReceipt(buffer);
       }
     } else {
       const body = await request.json().catch(() => null);
-      if (body?.image) base64Image = body.image;
+      if (body?.image) {
+        let raw = (body.image as string).trim();
+        if (raw.startsWith("data:")) raw = raw.replace(/^data:image\/[^;]+;base64,/, "");
+        base64Image = await resizeForReceipt(Buffer.from(raw, "base64"));
+      }
     }
 
     let parsed = {

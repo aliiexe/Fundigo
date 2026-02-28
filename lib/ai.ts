@@ -1,6 +1,10 @@
+/**
+ * AI helpers: receipt parsing, categorization, recommendations, goal advice.
+ * FREE ONLY: we use OpenRouter free-tier models only (:free suffix or openrouter/free). No paid APIs.
+ */
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// Only use OpenRouter free-tier models (suffix :free). No paid API usage.
+// Only free-tier models (no paid usage).
 const FREE_SUFFIX = ":free";
 const TEXT_MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
@@ -8,12 +12,10 @@ const TEXT_MODELS = [
   "google/gemma-3-27b-it:free",
   "mistralai/mistral-small-3.1-24b-instruct:free",
 ];
-// Free vision models from OpenRouter (0 price, support image input). IDs must match API exactly.
+// Vision models: only explicit free-tier (openrouter/free can route to models that reject our format).
 const VISION_MODELS = [
-  "openrouter/free",                          // free router, picks an available free model
-  "nvidia/nemotron-nano-12b-v2-vl:free",      // OCR, document intelligence
-  "qwen/qwen3-vl-30b-a3b-thinking",           // VL model, 0 price (no :free suffix)
-  "google/gemma-3-27b-it:free",               // text+image, free
+  "nvidia/nemotron-nano-12b-v2-vl:free",
+  "google/gemma-3-27b-it:free",
 ];
 
 function getApiKey(): string | null {
@@ -29,7 +31,10 @@ type ChatOptions = {
   model?: string;
   temperature?: number;
   max_tokens?: number;
+  timeoutMs?: number;
 };
+
+const VISION_REQUEST_TIMEOUT_MS = 45_000;
 
 async function tryModel(
   key: string,
@@ -37,31 +42,42 @@ async function tryModel(
   messages: Message[],
   opts: ChatOptions
 ): Promise<{ ok: true; text: string } | { ok: false; status: number }> {
-  const res = await fetch(OPENROUTER_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${key}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-      "X-Title": "Fundigo",
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: opts.temperature ?? 0.3,
-      max_tokens: opts.max_tokens ?? 1024,
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.warn(`[AI] ${model} returned ${res.status}: ${body.slice(0, 200)}`);
-    return { ok: false, status: res.status };
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), opts.timeoutMs ?? 60_000);
+  try {
+    const res = await fetch(OPENROUTER_URL, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+        "X-Title": "Fundigo",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: opts.temperature ?? 0.3,
+        max_tokens: opts.max_tokens ?? 1024,
+      }),
+    });
+    clearTimeout(timeoutId);
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.warn(`[AI] ${model} returned ${res.status}: ${body.slice(0, 200)}`);
+      return { ok: false, status: res.status };
+    }
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content?.trim();
+    return text ? { ok: true, text } : { ok: false, status: 0 };
+  } catch (e) {
+    clearTimeout(timeoutId);
+    if (e instanceof Error && e.name === "AbortError") {
+      console.warn(`[AI] ${model} timed out`);
+      return { ok: false, status: 408 };
+    }
+    throw e;
   }
-
-  const data = await res.json();
-  const text = data.choices?.[0]?.message?.content?.trim();
-  return text ? { ok: true, text } : { ok: false, status: 0 };
 }
 
 async function chat(messages: Message[], opts: ChatOptions = {}): Promise<string | null> {
@@ -156,18 +172,18 @@ export async function parseDocumentImage(
     docType === "invoice" ? INVOICE_PROMPT : docType === "bill" ? BILL_PROMPT : RECEIPT_PROMPT;
   const label = docType === "receipt" ? "receipt" : docType === "invoice" ? "invoice" : "bill";
 
+  // Use a single user message (instruction + image); some free models reject system "developer instruction"
   const messages: Message[] = [
-    { role: "system", content: prompt },
     {
       role: "user",
       content: [
-        { type: "text", text: `Parse this ${label}. Extract whatever you can:` },
+        { type: "text", text: `${prompt}\n\nParse this ${label} image. Extract whatever you can:` },
         { type: "image_url", image_url: { url: dataUrl } },
       ],
     },
   ];
 
-  const opts = { temperature: 0.1, max_tokens: 512 };
+  const opts = { temperature: 0.1, max_tokens: 512, timeoutMs: VISION_REQUEST_TIMEOUT_MS };
   let result: string | null = null;
 
   for (const model of VISION_MODELS) {
@@ -184,6 +200,35 @@ export async function parseDocumentImage(
     return normalizeParsed(parsed);
   } catch {
     console.error("[AI] Failed to parse document JSON, using defaults:", result?.slice(0, 100));
+    return { ...DEFAULT_PARSED, date: new Date().toISOString().slice(0, 10) };
+  }
+}
+
+const OCR_TEXT_PROMPT =
+  'You are a receipt parser. Below is raw OCR text from a receipt, invoice, or bill. Extract: (1) merchant/store/vendor name, (2) total amount (the final amount paid — look for "Total", "TOTAL", "Amount Due"), (3) date (convert to YYYY-MM-DD), (4) currency (USD if $ or no symbol), (5) line items (product names, optional). Respond with ONLY valid JSON, no other text: {"merchant":"...","amount":0.00,"date":"YYYY-MM-DD","currency":"USD","items":["item1",...]}. Use defaults only for missing: merchant "Unknown", amount 0, date today, currency "USD", items [].';
+
+/** Parse OCR-extracted text into structured receipt data using text-only AI (faster than vision). */
+export async function parseReceiptTextFromOcr(ocrText: string): Promise<ParsedReceipt> {
+  const trimmed = ocrText.trim();
+  if (!trimmed) return { ...DEFAULT_PARSED, date: new Date().toISOString().slice(0, 10) };
+
+  const messages: Message[] = [
+    { role: "system", content: OCR_TEXT_PROMPT },
+    { role: "user", content: `OCR text:\n${trimmed.slice(0, 4000)}` },
+  ];
+
+  const opts = { temperature: 0.1, max_tokens: 512, timeoutMs: 25_000 };
+  const result = await chat(messages, opts);
+
+  if (!result) return { ...DEFAULT_PARSED, date: new Date().toISOString().slice(0, 10) };
+
+  try {
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return { ...DEFAULT_PARSED, date: new Date().toISOString().slice(0, 10) };
+    const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>;
+    return normalizeParsed(parsed);
+  } catch {
+    console.error("[AI] Failed to parse OCR-text JSON:", result?.slice(0, 100));
     return { ...DEFAULT_PARSED, date: new Date().toISOString().slice(0, 10) };
   }
 }
