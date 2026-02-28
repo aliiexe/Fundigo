@@ -14,6 +14,7 @@ import {
   type ExportSection,
 } from "@/lib/exportData";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SearchInput } from "@/components/ui/SearchInput";
 
 export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
@@ -24,9 +25,26 @@ export default function SettingsPage() {
   const [savingCurrency, setSavingCurrency] = useState(false);
   const [savingCountry, setSavingCountry] = useState(false);
   const [savingBalance, setSavingBalance] = useState(false);
+  const [currencySearch, setCurrencySearch] = useState("");
+  const [countrySearch, setCountrySearch] = useState("");
   const [exportFormat, setExportFormat] = useState<ExportFormat>(() => getStoredExportOptions()?.format ?? DEFAULT_EXPORT_OPTIONS.format);
   const [exportInclude, setExportInclude] = useState<ExportSection[]>(() => getStoredExportOptions()?.include ?? DEFAULT_EXPORT_OPTIONS.include);
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false);
+
+  const filteredCurrencies = currencySearch.trim()
+    ? SUPPORTED_CURRENCIES.filter(
+        (c) =>
+          c.code.toLowerCase().includes(currencySearch.toLowerCase()) ||
+          c.name.toLowerCase().includes(currencySearch.toLowerCase())
+      )
+    : SUPPORTED_CURRENCIES;
+  const filteredCountries = countrySearch.trim()
+    ? SUPPORTED_COUNTRIES.filter(
+        (c) =>
+          c.code.toLowerCase().includes(countrySearch.toLowerCase()) ||
+          c.name.toLowerCase().includes(countrySearch.toLowerCase())
+      )
+    : SUPPORTED_COUNTRIES;
 
   useEffect(() => {
     setStoredExportOptions({ format: exportFormat, include: exportInclude });
@@ -196,22 +214,28 @@ export default function SettingsPage() {
               </span>
             </div>
           )}
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-            {SUPPORTED_COUNTRIES.map((c) => (
+          <SearchInput
+            value={countrySearch}
+            onChange={setCountrySearch}
+            placeholder="Search countries…"
+            className="mb-2"
+          />
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-56 overflow-y-auto overscroll-contain pr-1">
+            {filteredCountries.map((c) => (
               <button
                 key={c.code}
                 type="button"
                 onClick={() => handleCountryChange(c.code)}
                 disabled={savingCountry}
-                className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 disabled:opacity-60 ${
+                className={`flex flex-col items-center justify-center p-2.5 rounded-lg border-2 transition-all duration-200 disabled:opacity-60 ${
                   countryCode === c.code
                     ? "border-[#FF4000] bg-[#FF4000]/10 shadow-md shadow-[#FF4000]/10"
                     : "border-[#1e1e1e] bg-[#111111] hover:border-[#2a2a2a] hover:bg-[#1a1a1b]"
                 }`}
               >
-                <span className="text-2xl sm:text-3xl mb-1.5" aria-hidden>{c.flag}</span>
-                <span className="text-xs font-medium text-[#e8e8e8] truncate w-full text-center">{c.name}</span>
-                <span className="text-[10px] text-[#525252]">{c.code}</span>
+                <span className="text-xl sm:text-2xl mb-1" aria-hidden>{c.flag}</span>
+                <span className="text-[10px] font-medium text-[#e8e8e8] truncate w-full text-center leading-tight">{c.name}</span>
+                <span className="text-[9px] text-[#525252]">{c.code}</span>
               </button>
             ))}
           </div>
@@ -233,20 +257,27 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {SUPPORTED_CURRENCIES.map((c) => (
+          <SearchInput
+            value={currencySearch}
+            onChange={setCurrencySearch}
+            placeholder="Search currencies…"
+            className="mb-2"
+          />
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-56 overflow-y-auto overscroll-contain pr-1">
+            {filteredCurrencies.map((c) => (
               <button
                 key={c.code}
                 onClick={() => handleCurrencyChange(c.code)}
-                className={`p-3 rounded-xl border text-left transition-all ${
+                disabled={savingCurrency}
+                className={`flex flex-col items-center justify-center p-2.5 rounded-lg border-2 text-center transition-all disabled:opacity-60 ${
                   preferredCurrency === c.code
-                    ? "border-[#FF4000] bg-[#FF4000]/5"
-                    : "border-[#1e1e1e] hover:border-[#2a2a2a] bg-[#111111]"
+                    ? "border-[#FF4000] bg-[#FF4000]/10"
+                    : "border-[#1e1e1e] bg-[#111111] hover:border-[#2a2a2a] hover:bg-[#1a1a1b]"
                 }`}
               >
-                <span className="text-xl">{c.flag}</span>
-                <p className="text-sm font-medium text-[#e8e8e8] mt-1">{c.code}</p>
-                <p className="text-[10px] text-[#525252]">{c.name}</p>
+                <span className="text-xl mb-1">{c.flag}</span>
+                <span className="text-xs font-medium text-[#e8e8e8]">{c.code}</span>
+                <span className="text-[9px] text-[#525252] truncate w-full">{c.name}</span>
               </button>
             ))}
           </div>

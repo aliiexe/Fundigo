@@ -9,6 +9,8 @@ import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { SearchInput } from "@/components/ui/SearchInput";
+import { SubscriptionLogo } from "@/components/SubscriptionLogo";
+import { getSubscriptionColor } from "@/lib/subscriptionLogos";
 
 type Sub = { id: string; service_name: string; plan?: string; amount: number; currency: string; period: string; paused_until?: string | null };
 type CatalogItem = { id: string; service: string; plan: string; period: string; price_mad: number; currency: string };
@@ -261,16 +263,16 @@ export default function SubscriptionsPage() {
 
       {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="card">
+        <div className="card border-l-4 border-l-amber-500/60 bg-gradient-to-br from-[#0d0d0d] to-[#141414]">
           <div className="p-5">
             <p className="text-[#737373] text-xs font-medium uppercase tracking-wider">Monthly Cost</p>
-            <p className="text-2xl font-semibold text-[#f59e0b] mt-2">{formatCurrency(totalMonthly, currency)}</p>
+            <p className="text-2xl font-semibold text-amber-400 mt-2">{formatCurrency(totalMonthly, currency)}</p>
             <p className="text-[#525252] text-xs mt-1">
               {activeSubs.length} active{pausedSubs.length > 0 ? ` · ${pausedSubs.length} paused` : ""}
             </p>
           </div>
         </div>
-        <div className="card">
+        <div className="card border-l-4 border-l-[#FF4000]/50 bg-gradient-to-br from-[#0d0d0d] to-[#141414]">
           <div className="p-5">
             <p className="text-[#737373] text-xs font-medium uppercase tracking-wider">Yearly Projected</p>
             <p className="text-2xl font-semibold text-[#e8e8e8] mt-2">{formatCurrency(totalMonthly * 12, currency)}</p>
@@ -279,11 +281,16 @@ export default function SubscriptionsPage() {
         </div>
       </div>
 
-      {/* Catalog quick-add */}
+      {/* Subscription catalogue — quick add */}
       <div className="card">
         <div className="p-5">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <h2 className="text-base font-medium text-[#e8e8e8]">Quick add from catalog</h2>
+          <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider bg-[#FF4000]/15 text-[#FF4000] border border-[#FF4000]/30">
+                Catalogue
+              </span>
+              <h2 className="text-base font-medium text-[#e8e8e8]">Quick add from catalog</h2>
+            </div>
             <button
               type="button"
               onClick={() => { setPageLoading(true); load(); }}
@@ -308,20 +315,27 @@ export default function SubscriptionsPage() {
                 value={catalogSearch}
                 onChange={(e) => setCatalogSearch(e.target.value)}
               />
-              <div className="flex flex-wrap gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 max-h-64 overflow-y-auto overscroll-contain pr-1">
                 {catalog
-                  .filter((c) => c.service.toLowerCase().includes(catalogSearch.toLowerCase()))
-                  .slice(0, 12)
-                  .map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => pickFromCatalog(c)}
-                      className="px-3 py-1.5 rounded-lg border border-[#1e1e1e] text-[#737373] text-xs hover:border-[#FF4000] hover:text-[#FF4000] transition-all"
-                    >
-                      {c.service} {c.plan}
-                    </button>
-                  ))}
+                  .filter((c) =>
+                    c.service.toLowerCase().includes(catalogSearch.toLowerCase()) ||
+                    (c.plan && c.plan.toLowerCase().includes(catalogSearch.toLowerCase()))
+                  )
+                  .map((c) => {
+                    const accent = getSubscriptionColor(c.service);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => pickFromCatalog(c)}
+                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg border border-[#1e1e1e] text-[#a3a3a3] text-[11px] hover:border-[#FF4000]/50 hover:text-[#e8e8e8] transition-all hover:shadow-sm text-left min-w-0"
+                        style={{ backgroundColor: `${accent}08` }}
+                      >
+                        <SubscriptionLogo serviceName={c.service} size="sm" className="flex-shrink-0" />
+                        <span className="truncate">{c.service} {c.plan}</span>
+                      </button>
+                    );
+                  })}
               </div>
             </>
           )}
@@ -332,8 +346,8 @@ export default function SubscriptionsPage() {
       <SearchInput value={search} onChange={setSearch} placeholder="Search subscriptions…" />
 
       {/* List */}
-      <div className="card">
-        <div className="px-5 py-4 border-b border-[#1e1e1e]">
+      <div className="card overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#1a1a1a]">
           <h2 className="text-base font-medium text-[#e8e8e8]">Your subscriptions</h2>
         </div>
         {filtered.length === 0 ? (
@@ -341,17 +355,18 @@ export default function SubscriptionsPage() {
             <p className="text-[#525252] text-sm">{search ? "No matches found." : "No subscriptions yet."}</p>
           </div>
         ) : (
-          <ul className="divide-y divide-[#1e1e1e]">
+          <ul className="divide-y divide-[#1a1a1a]">
             {filtered.map((s) => {
               const paused = isPaused(s);
               return (
-                <li key={s.id} className={`px-5 py-4 flex items-center justify-between hover:bg-[#0a0a0a] transition-colors ${paused ? "opacity-50" : ""}`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${paused ? "bg-[#525252]/10" : "bg-[#f59e0b]/10"}`}>
-                      <span className={`text-xs ${paused ? "text-[#525252]" : "text-[#f59e0b]"}`}>{paused ? "⏸" : "⟳"}</span>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
+                <li
+                  key={s.id}
+                  className={`group px-5 py-4 flex items-center justify-between gap-4 hover:bg-[#0c0c0c]/50 transition-colors ${paused ? "opacity-60" : ""}`}
+                >
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <SubscriptionLogo serviceName={s.service_name} size="md" variant="subtle" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className={`text-sm font-medium ${paused ? "text-[#525252]" : "text-[#e8e8e8]"}`}>{s.service_name}</p>
                         {paused && (
                           <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-[#525252]/10 text-[#737373]">
