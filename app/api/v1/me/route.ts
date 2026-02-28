@@ -18,6 +18,7 @@ export async function GET() {
       profession: user.profession,
       primary_goal: user.primary_goal,
       preferred_currency: user.preferred_currency ?? "USD",
+      country_code: user.country_code ?? null,
       starting_balance: user.starting_balance ?? 0,
       onboarding_completed_at: user.onboarding_completed_at ?? null,
     });

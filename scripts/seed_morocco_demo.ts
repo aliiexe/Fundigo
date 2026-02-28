@@ -1,5 +1,6 @@
 /**
- * Seed: subscription_catalog (Moroccan-focused) + demo user (demo@fundigo.local) + demo subscriptions.
+ * Seed: demo user (demo@fundigo.local) + demo subscriptions.
+ * For subscription_catalog (multi-country), run: npx tsx db/seed/subscription_catalog_multi_country.ts
  * Uses SUPABASE_URL and SUPABASE_SECRET_KEY.
  * Run from repo root: pnpm run seed (loads apps/web/.env.local)
  */
@@ -23,38 +24,9 @@ if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SECRET_KEY);
 
-const CATALOG: Array<{ service: string; plan: string; period: string; price_mad: number }> = [
-  { service: 'Netflix', plan: 'Basic', period: 'monthly', price_mad: 39 },
-  { service: 'Netflix', plan: 'Standard', period: 'monthly', price_mad: 59 },
-  { service: 'Netflix', plan: 'Premium', period: 'monthly', price_mad: 89 },
-  { service: 'Spotify', plan: 'Individual', period: 'monthly', price_mad: 19 },
-  { service: 'YouTube Premium', plan: 'Premium', period: 'monthly', price_mad: 29 },
-  { service: 'Cursor', plan: 'Pro', period: 'monthly', price_mad: 200 },
-  { service: 'Disney+', plan: 'Standard', period: 'monthly', price_mad: 49 },
-  { service: 'Anghami', plan: 'Premium', period: 'monthly', price_mad: 19 },
-  { service: 'Shahid', plan: 'VIP', period: 'monthly', price_mad: 35 },
-  { service: 'Amazon Prime', plan: 'Prime', period: 'monthly', price_mad: 29 },
-  { service: 'Canva', plan: 'Pro', period: 'monthly', price_mad: 60 },
-  { service: 'Microsoft 365', plan: 'Personal', period: 'monthly', price_mad: 39 },
-  { service: 'Dropbox', plan: 'Plus', period: 'monthly', price_mad: 29 },
-  { service: 'Adobe Creative Cloud', plan: 'Photography', period: 'monthly', price_mad: 49 },
-  { service: 'PlayStation Plus', plan: 'Essential', period: 'monthly', price_mad: 29 },
-  { service: 'Nintendo Switch Online', plan: 'Individual', period: 'monthly', price_mad: 10 },
-  { service: 'Tidal', plan: 'HiFi', period: 'monthly', price_mad: 29 },
-  { service: 'Google One', plan: '100GB', period: 'monthly', price_mad: 19 },
-];
-
 const DEMO_CLERK_ID = 'demo_fundigo_local';
 
 async function main() {
-  console.log('Seeding subscription_catalog...');
-  await supabase.from('subscription_catalog').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-  for (const row of CATALOG) {
-    const { error } = await supabase.from('subscription_catalog').insert({ ...row, currency: 'MAD' });
-    if (error) console.warn('Catalog row:', row.service, error.message);
-  }
-  console.log('Catalog done.');
-
   const { data: existingUser } = await supabase
     .from('users')
     .select('id')

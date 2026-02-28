@@ -20,6 +20,38 @@ export const PRESET_LABELS: Record<Preset, string> = {
   aggressive: "Aggressive Saver (40 / 40 / 20)",
 };
 
+const PRESET_DESCRIPTIONS: Record<Preset, string> = {
+  student: "Student",
+  standard: "Standard",
+  aggressive: "Aggressive saver",
+};
+
+/** Build clear, deterministic reasoning for an allocation (no AI). */
+export function buildAllocationReasoning(opts: {
+  amount: number;
+  suggested: Allocation;
+  preset: Preset;
+  isAdaptive: boolean;
+  goalNames: string[];
+  currency: string;
+}): string {
+  const { amount, suggested, preset, isAdaptive, goalNames, currency } = opts;
+  const spendAmt = (amount * (suggested.spend / 100));
+  const saveAmt = (amount * ((suggested.save ?? 0) / 100));
+  const investAmt = (amount * ((suggested.invest ?? 0) / 100));
+  const keepAmt = (amount * ((suggested.keep ?? 0) / 100));
+  const fmt = (n: number) => `${currency} ${n.toFixed(2)}`;
+
+  const parts: string[] = [];
+  parts.push(`On ${fmt(amount)}: ${suggested.spend}% to spend (${fmt(spendAmt)}), ${suggested.save ?? 0}% to save (${fmt(saveAmt)}), ${suggested.invest ?? 0}% to invest (${fmt(investAmt)}).`);
+  if (keepAmt > 0) parts.push(`${suggested.keep}% kept as buffer (${fmt(keepAmt)}).`);
+  parts.push(`This follows the ${PRESET_DESCRIPTIONS[preset]} preset.`);
+  if (isAdaptive) parts.push("Adjusted slightly based on your past accepted allocations.");
+  if (goalNames.length > 0) parts.push(`Your save portion can go toward: ${goalNames.slice(0, 3).join(", ")}.`);
+
+  return parts.join(" ");
+}
+
 function normalize(a: Allocation): Allocation {
   const total = a.spend + a.save + a.invest + (a.keep ?? 0);
   if (total === 0) return { ...PRESETS.standard };

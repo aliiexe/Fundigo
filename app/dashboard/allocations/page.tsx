@@ -96,14 +96,10 @@ export default function AllocationsPage() {
 
   const f = (n: number, c?: string) => formatCurrency(n, c || currency);
 
-  const totalAllocated = list.reduce((s, a) => s + Number(a.amount), 0);
-  const totalToSavings = list
-    .filter((a) => a.accepted)
-    .reduce((s, a) => s + Number(a.amount) * (Number(a.save_pct) / 100), 0);
-  const totalToInvest = list
-    .filter((a) => a.accepted)
-    .reduce((s, a) => s + Number(a.amount) * (Number(a.invest_pct) / 100), 0);
-  const acceptedCount = list.filter((a) => a.accepted).length;
+  const acceptedList = list.filter((a) => a.accepted);
+  const totalAllocated = acceptedList.reduce((s, a) => s + Number(a.amount), 0);
+  const totalToSavings = acceptedList.reduce((s, a) => s + Number(a.amount) * (Number(a.save_pct) / 100), 0);
+  const totalToInvest = acceptedList.reduce((s, a) => s + Number(a.amount) * (Number(a.invest_pct) / 100), 0);
 
   const monthLabel = new Date(
     Number(month.split("-")[0]),
@@ -141,21 +137,21 @@ export default function AllocationsPage() {
           <div className="p-5">
             <p className="text-[#737373] text-xs font-medium uppercase tracking-wider">Total Allocated</p>
             <p className="text-2xl font-semibold text-[#e8e8e8] mt-2">{f(totalAllocated)}</p>
-            <p className="text-[#525252] text-xs mt-1">{list.length} allocation{list.length !== 1 ? "s" : ""} in {monthLabel}</p>
+            <p className="text-[#525252] text-xs mt-1">{acceptedList.length} allocation{acceptedList.length !== 1 ? "s" : ""} in {monthLabel}</p>
           </div>
         </div>
         <div className="card">
           <div className="p-5">
             <p className="text-[#737373] text-xs font-medium uppercase tracking-wider">To Savings</p>
             <p className="text-2xl font-semibold text-[#10b981] mt-2">{f(totalToSavings)}</p>
-            <p className="text-[#525252] text-xs mt-1">From {acceptedCount} accepted</p>
+            <p className="text-[#525252] text-xs mt-1">From accepted allocations</p>
           </div>
         </div>
         <div className="card">
           <div className="p-5">
             <p className="text-[#737373] text-xs font-medium uppercase tracking-wider">To Investments</p>
             <p className="text-2xl font-semibold text-[#8b5cf6] mt-2">{f(totalToInvest)}</p>
-            <p className="text-[#525252] text-xs mt-1">From {acceptedCount} accepted</p>
+            <p className="text-[#525252] text-xs mt-1">From accepted allocations</p>
           </div>
         </div>
       </div>
@@ -170,20 +166,20 @@ export default function AllocationsPage() {
         ))}
       </div>
 
-      {/* Allocation cards */}
+      {/* Allocation cards — only accepted */}
       <div className="space-y-4">
-        {list.length === 0 ? (
+        {acceptedList.length === 0 ? (
           <div className="card">
             <div className="p-8 text-center">
               <div className="w-12 h-12 rounded-xl bg-[#111111] flex items-center justify-center mx-auto mb-3">
                 <svg className="w-6 h-6 text-[#525252]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>
               </div>
-              <p className="text-[#525252] text-sm">No allocations this month.</p>
-              <p className="text-[#525252] text-xs mt-1">Allocations appear when you receive income and distribute it.</p>
+              <p className="text-[#525252] text-sm">No accepted allocations this month.</p>
+              <p className="text-[#525252] text-xs mt-1">When you receive income and accept a distribution, it will appear here.</p>
             </div>
           </div>
         ) : (
-          list.map((a) => {
+          acceptedList.map((a) => {
             const allCurrency = a.currency || currency;
             const amt = Number(a.amount);
             const spendAmt = amt * (Number(a.spend_pct) / 100);
@@ -201,20 +197,12 @@ export default function AllocationsPage() {
             return (
               <div key={a.id} className="card">
                 <div className="p-5 space-y-4">
-                  {/* Top row: amount + badge + date */}
+                  {/* Top row: amount + date */}
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-xl font-semibold text-[#e8e8e8]">{f(amt, allCurrency)}</p>
                       <p className="text-xs text-[#525252] mt-0.5">{dateStr}</p>
                     </div>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${
-                      a.accepted
-                        ? "bg-[#10b981]/10 text-[#10b981]"
-                        : "bg-[#525252]/10 text-[#525252]"
-                    }`}>
-                      <span className="text-[10px]">{a.accepted ? "✓" : "—"}</span>
-                      {a.accepted ? "Accepted" : "Skipped"}
-                    </span>
                   </div>
 
                   {/* Breakdown bar */}
@@ -267,7 +255,7 @@ export default function AllocationsPage() {
                         className="text-xs text-[#FF4000] hover:underline flex items-center gap-1"
                       >
                         <svg className={`w-3 h-3 transition-transform ${expanded[a.id] ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                        {expanded[a.id] ? "Hide reasoning" : "View AI reasoning"}
+                        {expanded[a.id] ? "Hide reasoning" : "View reasoning"}
                       </button>
                       {expanded[a.id] && (
                         <div className="mt-2 p-3 rounded-lg border border-[#1e1e1e] bg-[#0a0a0a]">

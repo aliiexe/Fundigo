@@ -23,9 +23,10 @@ export async function GET() {
     const u = await getOrCreateUser(supabase, userId);
     if (!u) return NextResponse.json({ error: "Could not load account" }, { status: 500 });
 
+    const country = u.country_code?.toUpperCase() ?? "";
     const [subsRes, catalogRes, incomesRes, expensesRes, goalsRes] = await Promise.all([
       supabase.from("subscriptions").select("id, service_name, plan, amount, currency, period, created_at").eq("user_id", u.id),
-      supabase.from("subscription_catalog").select("service, plan, period, price_mad, currency"),
+      supabase.from("subscription_catalog").select("service, plan, period, price_mad, currency").eq("country_code", country || "_none_"),
       supabase.from("income_sources").select("name, amount, frequency, created_at").eq("user_id", u.id),
       supabase.from("expenses").select("merchant_cipher, amount").eq("user_id", u.id).order("date", { ascending: false }).limit(100),
       supabase.from("goals").select("name, target_amount, current_amount, deadline").eq("user_id", u.id),

@@ -14,6 +14,8 @@ If you already had the schema applied earlier:
 - Run **`db/migrations/001_add_preferred_currency.sql`** to add the `preferred_currency` column to `users`.
 - Run **`db/migrations/002_income_frequency_irregular.sql`** to allow `irregular` as an income frequency.
 - Run **`db/migrations/003_add_onboarding_completed_at.sql`** to add `onboarding_completed_at` to `users`.
+- Run **`db/migrations/010_add_country_code.sql`** to add `country_code` to `users` and `subscription_catalog` (for multi-country subscription catalog).
+- Run **`db/migrations/011_country_code_no_default.sql`** so users have no default country; they must set it during onboarding.
 
 ## Option 2: Supabase CLI
 
@@ -36,7 +38,7 @@ psql "$DATABASE_URL" -f db/schema.sql
 - `users` — Clerk user id + profile
 - `income_sources` — Income entries (frequency: weekly, monthly, etc.)
 - `subscriptions` — Recurring subscriptions
-- `subscription_catalog` — Reference catalog (e.g. Moroccan MAD)
+- `subscription_catalog` — Reference catalog per country (MA, US, FR, GB, etc.); users see only plans for their country.
 - `expenses` — Expense records (encrypted merchant/raw text)
 - `categories` — Optional expense categories
 - `goals` — Savings/goals with target and deadline
@@ -44,4 +46,7 @@ psql "$DATABASE_URL" -f db/schema.sql
 - `audit_logs` — Exports, deletes, etc.
 - `jobs` — Background jobs (OCR, purge, etc.)
 
-After this, set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in `.env.local` and run `npm run seed` (optional) or `npm run dev`.
+After this, set `SUPABASE_URL` and `SUPABASE_SECRET_KEY` in `.env.local`. Optionally:
+- **`pnpm run seed:catalog`** — Populate `subscription_catalog` with plans for MA, US, FR, GB, CA, DE, AE, EG (Morocco first; users see only their country’s catalog).
+- **`pnpm run seed`** — Create demo user and demo subscriptions (does not overwrite catalog).
+Then run `pnpm run dev`.

@@ -11,7 +11,7 @@ export function OnboardingGuard({ children }: { children: React.ReactNode }) {
     fetch("/api/v1/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data?.onboarding_completed_at) setAllowed(true);
+        if (data?.onboarding_completed_at && data?.country_code) setAllowed(true);
         else router.replace("/onboarding");
       })
       .catch(() => router.replace("/onboarding"));

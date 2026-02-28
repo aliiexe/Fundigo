@@ -1,16 +1,13 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/themes";
-import { Plus_Jakarta_Sans } from "next/font/google";
 import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/next"
 import "./globals.css";
 
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ["latin"],
-  variable: "--font-plus-jakarta",
-  display: "swap",
-});
+// System font stack (no network fetch at build time); similar to Plus Jakarta Sans
+const fontFamily =
+  '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"';
 
 export const metadata: Metadata = {
   title: "Fundigo — Smart Personal Finance",
@@ -35,7 +32,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           colorSuccess: "#10b981",
           colorWarning: "#f59e0b",
           borderRadius: "0.75rem",
-          fontFamily: "var(--font-plus-jakarta), system-ui, sans-serif",
+          fontFamily,
         },
         elements: {
           card: "bg-[#141415] border border-[#252527] shadow-2xl shadow-black/50",
@@ -71,7 +68,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       }}
     >
       <html lang="en" className="dark">
-        <body className={`${plusJakarta.variable} font-sans antialiased min-h-screen`}>
+        <body
+          className="font-sans antialiased min-h-screen"
+          style={{ fontFamily, ["--font-plus-jakarta" as string]: fontFamily } as React.CSSProperties}
+        >
           {children}
           <Toaster theme="dark" position="bottom-right" richColors closeButton />
         </body>

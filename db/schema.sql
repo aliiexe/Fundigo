@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   profession text,
   primary_goal text,
   preferred_currency text DEFAULT 'USD',
+  country_code text,
   starting_balance numeric DEFAULT 0,
   onboarding_completed_at timestamptz,
   e2e_encrypted boolean DEFAULT false,
@@ -119,7 +120,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   updated_at timestamptz DEFAULT now()
 );
 
--- Subscription catalog (Moroccan-focused reference data)
+-- Subscription catalog (multi-country: MA, US, FR, GB, etc.)
 CREATE TABLE IF NOT EXISTS subscription_catalog (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   service text NOT NULL,
@@ -127,11 +128,13 @@ CREATE TABLE IF NOT EXISTS subscription_catalog (
   period text NOT NULL CHECK (period IN ('monthly', 'yearly')),
   price_mad numeric NOT NULL,
   currency text DEFAULT 'USD',
+  country_code text NOT NULL DEFAULT 'MA',
   created_at timestamptz DEFAULT now(),
-  UNIQUE(service, plan, period)
+  UNIQUE(service, plan, period, country_code)
 );
 
 CREATE INDEX IF NOT EXISTS idx_subscription_catalog_service ON subscription_catalog(service);
+CREATE INDEX IF NOT EXISTS idx_subscription_catalog_country ON subscription_catalog(country_code);
 
 -- Consent logs (GDPR)
 CREATE TABLE IF NOT EXISTS consent_logs (

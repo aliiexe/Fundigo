@@ -6,13 +6,14 @@ export type UserRow = {
   profession: string | null;
   primary_goal: string | null;
   preferred_currency: string | null;
+  country_code: string | null;
   starting_balance: number;
   onboarding_completed_at: string | null;
   e2e_encrypted?: boolean;
 };
 
 const USER_SELECT =
-  "id, clerk_id, profession, primary_goal, preferred_currency, starting_balance, onboarding_completed_at, e2e_encrypted";
+  "id, clerk_id, profession, primary_goal, preferred_currency, country_code, starting_balance, onboarding_completed_at, e2e_encrypted";
 
 export async function getOrCreateUser(
   supabase: SupabaseClient,

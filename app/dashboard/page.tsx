@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { formatCurrency, DEFAULT_CURRENCY } from "@/lib/currency";
 import {
@@ -21,6 +22,8 @@ type Goal = { id: string; name: string; target_amount: number; current_amount: n
 
 type Recommendation = { type: string; subscription_id: string; service_name: string; message: string; potential_savings?: number };
 
+type Reminder = { merchant: string; typicalDay: number; message: string };
+
 type DashboardData = {
   month: string;
   currency?: string;
@@ -36,6 +39,7 @@ type DashboardData = {
   goals: Goal[];
   spendingByMerchant: Record<string, number>;
   rates?: Record<string, number>;
+  reminders?: Reminder[];
 };
 
 function MonthPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
@@ -197,6 +201,34 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Gentle reminders */}
+      {data.reminders && data.reminders.length > 0 && (
+        <div className="card">
+          <div className="px-5 py-4 border-b border-[#1e1e1e] flex items-center gap-2">
+            <svg className="w-4 h-4 text-[#f59e0b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+            </svg>
+            <h2 className="text-base font-medium text-[#e8e8e8]">Gentle reminders</h2>
+          </div>
+          <ul className="divide-y divide-[#1e1e1e]">
+            {data.reminders.map((r, i) => (
+              <li key={`${r.merchant}-${i}`} className="px-5 py-4 flex items-start gap-3">
+                <span className="text-[#f59e0b] mt-0.5">•</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-[#e8e8e8]">{r.message}</p>
+                  <Link
+                    href="/dashboard/expenses"
+                    className="inline-block text-xs text-[#FF4000] hover:underline mt-1"
+                  >
+                    Add expense →
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

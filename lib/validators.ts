@@ -14,6 +14,7 @@ export const ensureUserBody = z.object({
   profession: z.string().optional(),
   primary_goal: z.string().optional(),
   preferred_currency: currencySchema.optional(),
+  country_code: z.string().length(2).optional(),
   starting_balance: z.number().nonnegative().optional(),
   complete_onboarding: z.boolean().optional(),
 });

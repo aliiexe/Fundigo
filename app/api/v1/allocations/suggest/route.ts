@@ -5,8 +5,7 @@ import { getUserId } from "@/lib/auth";
 import { createServerClient } from "@/lib/supabase";
 import { getOrCreateUser } from "@/lib/user";
 import { allocationsSuggestBody } from "@/lib/validators";
-import { suggestAllocation } from "@/lib/allocation";
-import { generateAllocationReasoning } from "@/lib/ai";
+import { suggestAllocation, buildAllocationReasoning } from "@/lib/allocation";
 
 export async function POST(request: Request) {
   try {
@@ -24,45 +23,20 @@ export async function POST(request: Request) {
       supabase, u.id, parsed.data.amount, u.profession, u.e2e_encrypted ?? false
     );
 
-    const [incomesRes, expensesRes, subsRes, goalsRes] = await Promise.all([
-      supabase.from("income_sources").select("amount, frequency").eq("user_id", u.id),
-      supabase.from("expenses").select("amount").eq("user_id", u.id),
-      supabase.from("subscriptions").select("amount, period").eq("user_id", u.id),
-      supabase.from("goals").select("name, target_amount, current_amount").eq("user_id", u.id),
-    ]);
+    const { data: goalsData } = await supabase
+      .from("goals")
+      .select("name")
+      .eq("user_id", u.id);
+    const goalNames = (goalsData ?? []).map((g) => g.name);
 
-    let monthlyIncome = 0;
-    for (const i of incomesRes.data ?? []) {
-      if (i.frequency === "monthly") monthlyIncome += Number(i.amount);
-      else if (i.frequency === "yearly") monthlyIncome += Number(i.amount) / 12;
-      else if (i.frequency === "weekly") monthlyIncome += Number(i.amount) * 4.33;
-      else if (i.frequency === "biweekly") monthlyIncome += Number(i.amount) * 2.17;
-      else if (i.frequency === "irregular") monthlyIncome += Number(i.amount);
-    }
-
-    let monthlySubs = 0;
-    for (const s of subsRes.data ?? []) {
-      monthlySubs += s.period === "yearly" ? Number(s.amount) / 12 : Number(s.amount);
-    }
-
-    const totalExpenses = (expensesRes.data ?? []).reduce((s, e) => s + Number(e.amount), 0);
-
-    const aiResult = await generateAllocationReasoning({
-      profession: u.profession,
-      primary_goal: u.primary_goal,
-      monthly_income: monthlyIncome,
-      monthly_expenses: totalExpenses,
-      monthly_subscriptions: monthlySubs,
-      goals: (goalsRes.data ?? []).map((g) => ({
-        name: g.name,
-        target: Number(g.target_amount),
-        current: Number(g.current_amount),
-      })),
-      allocation: { spend: suggested.spend, save: suggested.save, invest: suggested.invest, keep: suggested.keep ?? 0 },
+    const reasoningText = buildAllocationReasoning({
       amount: parsed.data.amount,
+      suggested,
+      preset,
+      isAdaptive,
+      goalNames,
+      currency: u.preferred_currency || "USD",
     });
-
-    const reasoningText = aiResult?.reasoning || `Based on ${preset} preset for ${parsed.data.amount}.`;
     let alloc: { id: string } | null = null;
     const insertData: Record<string, unknown> = {
       user_id: u.id,
@@ -97,7 +71,6 @@ export async function POST(request: Request) {
       historyCount,
       emaWeight: Math.round(emaWeight * 100),
       reasoning: reasoningText,
-      etaGoal: aiResult?.etaGoal,
       id: alloc.id,
     });
   } catch (e) {

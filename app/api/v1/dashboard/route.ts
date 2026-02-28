@@ -29,7 +29,10 @@ export async function GET(request: Request) {
     const startTs = `${start}T00:00:00.000Z`;
     const endTs = `${end}T23:59:59.999Z`;
 
-    const [incomeRes, expenseRes, subRes, goalRes, rates] = await Promise.all([
+    const rangeStart = new Date(y, m - 1 - 3, 1);
+    const rangeStartStr = `${rangeStart.getFullYear()}-${String(rangeStart.getMonth() + 1).padStart(2, "0")}-01`;
+
+    const [incomeRes, expenseRes, expenseHistoryRes, subRes, goalRes, rates] = await Promise.all([
       supabase.from("income_sources").select("id, name, amount, currency, frequency, note, created_at").eq("user_id", uid),
       supabase
         .from("expenses")
@@ -38,6 +41,12 @@ export async function GET(request: Request) {
         .gte("date", start)
         .lte("date", end)
         .order("date", { ascending: false }),
+      supabase
+        .from("expenses")
+        .select("merchant_cipher, date")
+        .eq("user_id", uid)
+        .gte("date", rangeStartStr)
+        .lte("date", end),
       supabase
         .from("subscriptions")
         .select("id, service_name, plan, amount, currency, period, paused_until")
@@ -48,6 +57,7 @@ export async function GET(request: Request) {
 
     const incomes = incomeRes.data ?? [];
     const rawExpenses = expenseRes.data ?? [];
+    const rawHistory = expenseHistoryRes.data ?? [];
     const subscriptions = subRes.data ?? [];
     const goals = goalRes.data ?? [];
 
@@ -115,6 +125,49 @@ export async function GET(request: Request) {
       spendingByMerchant[key] = (spendingByMerchant[key] || 0) + e.amount;
     }
 
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === y && today.getMonth() + 1 === m;
+    const dayOfMonth = Math.min(today.getDate(), lastDay);
+
+    const merchantToDays: Record<string, number[]> = {};
+    const merchantToMonths: Record<string, Set<string>> = {};
+    for (const row of rawHistory) {
+      let merchant = "Other";
+      try {
+        const p = JSON.parse(row.merchant_cipher);
+        if (p.ciphertext && p.iv && p.tag) {
+          merchant = decryptText(p.ciphertext, p.iv, p.tag);
+        }
+      } catch {
+        merchant = row.merchant_cipher;
+      }
+      const key = (merchant || "").trim() || "Other";
+      if (key === "Other") continue;
+      const d = row.date ? new Date(row.date).getDate() : 1;
+      const monthKey = row.date ? String(row.date).slice(0, 7) : "";
+      if (!merchantToDays[key]) merchantToDays[key] = [];
+      merchantToDays[key].push(d);
+      if (!merchantToMonths[key]) merchantToMonths[key] = new Set();
+      if (monthKey) merchantToMonths[key].add(monthKey);
+    }
+
+    const currentMonthMerchants = new Set(expenses.map((e) => (e.merchant || "").trim()).filter(Boolean));
+    const reminders: { merchant: string; typicalDay: number; message: string }[] = [];
+    for (const [merchant, days] of Object.entries(merchantToDays)) {
+      if ((merchantToMonths[merchant]?.size ?? 0) < 2) continue;
+      const typicalDay = days.sort((a, b) => a - b)[Math.floor(days.length / 2)] ?? 1;
+      if (!isCurrentMonth || currentMonthMerchants.has(merchant)) continue;
+      if (dayOfMonth >= typicalDay - 2 || dayOfMonth >= lastDay - 5) {
+        const dayLabel =
+          typicalDay === 1 ? "the 1st" : typicalDay === 2 ? "the 2nd" : typicalDay === 3 ? "the 3rd" : `around the ${typicalDay}`;
+        reminders.push({
+          merchant,
+          typicalDay,
+          message: `You usually log ${merchant} around ${dayLabel} — did you add it?`,
+        });
+      }
+    }
+
     return NextResponse.json({
       month,
       currency: target,
@@ -145,6 +198,7 @@ export async function GET(request: Request) {
       goals,
       spendingByMerchant,
       rates,
+      reminders,
     });
   } catch (e) {
     console.error(e);

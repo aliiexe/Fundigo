@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import { formatCurrency, SUPPORTED_CURRENCIES, DEFAULT_CURRENCY } from "@/lib/currency";
 import { convertSync } from "@/lib/exchange";
@@ -48,11 +49,12 @@ export default function SubscriptionsPage() {
   const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(() => {
+    const noCache = { cache: "no-store" as RequestCache };
     Promise.all([
-      fetch("/api/v1/me").then((r) => (r.ok ? r.json() : null)),
-      fetch("/api/v1/subscriptions").then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/v1/catalog").then((r) => (r.ok ? r.json() : [])),
-      fetch("/api/v1/rates").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/v1/me", noCache).then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/v1/subscriptions", noCache).then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/v1/catalog", noCache).then((r) => (r.ok ? r.json() : [])),
+      fetch("/api/v1/rates", noCache).then((r) => (r.ok ? r.json() : null)),
     ])
       .then(([me, subs, cat, ratesData]) => {
         if (me?.preferred_currency) {
@@ -278,35 +280,53 @@ export default function SubscriptionsPage() {
       </div>
 
       {/* Catalog quick-add */}
-      {catalog.length > 0 && (
-        <div className="card">
-          <div className="p-5">
-            <h2 className="text-base font-medium text-[#e8e8e8] mb-3">Quick add from catalog</h2>
-            <input
-              type="text"
-              className="input-field mb-3"
-              placeholder="Search catalog…"
-              value={catalogSearch}
-              onChange={(e) => setCatalogSearch(e.target.value)}
-            />
-            <div className="flex flex-wrap gap-2">
-              {catalog
-                .filter((c) => c.service.toLowerCase().includes(catalogSearch.toLowerCase()))
-                .slice(0, 12)
-                .map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => pickFromCatalog(c)}
-                    className="px-3 py-1.5 rounded-lg border border-[#1e1e1e] text-[#737373] text-xs hover:border-[#FF4000] hover:text-[#FF4000] transition-all"
-                  >
-                    {c.service} {c.plan}
-                  </button>
-                ))}
-            </div>
+      <div className="card">
+        <div className="p-5">
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h2 className="text-base font-medium text-[#e8e8e8]">Quick add from catalog</h2>
+            <button
+              type="button"
+              onClick={() => { setPageLoading(true); load(); }}
+              disabled={pageLoading}
+              className="text-xs text-[#737373] hover:text-[#FF4000] transition-colors disabled:opacity-50"
+            >
+              {pageLoading ? "Loading…" : "Refresh"}
+            </button>
           </div>
+          {pageLoading && catalog.length === 0 ? (
+            <p className="text-[#525252] text-sm">Loading catalog for your country…</p>
+          ) : catalog.length === 0 ? (
+            <p className="text-[#525252] text-sm">
+              No catalog plans for your country. Set your country in <Link href="/dashboard/settings" className="text-[#FF4000] hover:underline">Settings</Link> to see plans for your region, or add subscriptions manually above.
+            </p>
+          ) : (
+            <>
+              <input
+                type="text"
+                className="input-field mb-3"
+                placeholder="Search catalog…"
+                value={catalogSearch}
+                onChange={(e) => setCatalogSearch(e.target.value)}
+              />
+              <div className="flex flex-wrap gap-2">
+                {catalog
+                  .filter((c) => c.service.toLowerCase().includes(catalogSearch.toLowerCase()))
+                  .slice(0, 12)
+                  .map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => pickFromCatalog(c)}
+                      className="px-3 py-1.5 rounded-lg border border-[#1e1e1e] text-[#737373] text-xs hover:border-[#FF4000] hover:text-[#FF4000] transition-all"
+                    >
+                      {c.service} {c.plan}
+                    </button>
+                  ))}
+              </div>
+            </>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Search */}
       <SearchInput value={search} onChange={setSearch} placeholder="Search subscriptions…" />

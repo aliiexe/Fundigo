@@ -1,0 +1,328 @@
+/**
+ * Multi-country subscription catalog seed.
+ * Run after migration 010 (country_code on subscription_catalog).
+ * Morocco (MA) is top priority; US, FR, GB, CA, DE, etc. for broader coverage.
+ *
+ * Usage: npx tsx db/seed/subscription_catalog_multi_country.ts
+ * (requires SUPABASE_URL and SUPABASE_SERVICE_ROLE or SUPABASE_SECRET_KEY)
+ */
+
+import { config } from "dotenv";
+import { resolve } from "path";
+
+config({ path: resolve(process.cwd(), ".env.local") });
+config({ path: resolve(process.cwd(), "apps/web/.env.local") });
+
+import { createClient } from "@supabase/supabase-js";
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error("Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SECRET_KEY.");
+  process.exit(1);
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+type CatalogRow = {
+  service: string;
+  plan: string;
+  period: "monthly" | "yearly";
+  price_mad: number;
+  currency: string;
+  country_code: string;
+};
+
+const CATALOG: CatalogRow[] = [
+  // —— Morocco (MA) — top priority ——
+  { service: "Netflix", plan: "Basic", period: "monthly", price_mad: 39, currency: "MAD", country_code: "MA" },
+  { service: "Netflix", plan: "Standard", period: "monthly", price_mad: 59, currency: "MAD", country_code: "MA" },
+  { service: "Netflix", plan: "Premium", period: "monthly", price_mad: 89, currency: "MAD", country_code: "MA" },
+  { service: "Spotify", plan: "Individual", period: "monthly", price_mad: 19, currency: "MAD", country_code: "MA" },
+  { service: "Spotify", plan: "Duo", period: "monthly", price_mad: 24, currency: "MAD", country_code: "MA" },
+  { service: "Spotify", plan: "Family", period: "monthly", price_mad: 29, currency: "MAD", country_code: "MA" },
+  { service: "Spotify", plan: "Student", period: "monthly", price_mad: 9.5, currency: "MAD", country_code: "MA" },
+  { service: "YouTube Premium", plan: "Premium", period: "monthly", price_mad: 29, currency: "MAD", country_code: "MA" },
+  { service: "YouTube Premium", plan: "Premium", period: "yearly", price_mad: 279, currency: "MAD", country_code: "MA" },
+  { service: "Disney+", plan: "Standard", period: "monthly", price_mad: 49, currency: "MAD", country_code: "MA" },
+  { service: "Disney+", plan: "Premium", period: "monthly", price_mad: 69, currency: "MAD", country_code: "MA" },
+  { service: "Anghami", plan: "Premium", period: "monthly", price_mad: 19, currency: "MAD", country_code: "MA" },
+  { service: "Anghami", plan: "Unlimited", period: "monthly", price_mad: 29, currency: "MAD", country_code: "MA" },
+  { service: "Shahid", plan: "VIP", period: "monthly", price_mad: 35, currency: "MAD", country_code: "MA" },
+  { service: "Shahid", plan: "VIP Mobile", period: "monthly", price_mad: 19, currency: "MAD", country_code: "MA" },
+  { service: "Shahid", plan: "VIP BigTime", period: "monthly", price_mad: 45, currency: "MAD", country_code: "MA" },
+  { service: "Shahid", plan: "VIP", period: "yearly", price_mad: 299, currency: "MAD", country_code: "MA" },
+  { service: "Amazon Prime", plan: "Prime", period: "monthly", price_mad: 29, currency: "MAD", country_code: "MA" },
+  { service: "Apple Music", plan: "Individual", period: "monthly", price_mad: 19, currency: "MAD", country_code: "MA" },
+  { service: "Apple Music", plan: "Family", period: "monthly", price_mad: 29, currency: "MAD", country_code: "MA" },
+  { service: "Apple Music", plan: "Student", period: "monthly", price_mad: 9.5, currency: "MAD", country_code: "MA" },
+  { service: "Canva", plan: "Pro", period: "monthly", price_mad: 60, currency: "MAD", country_code: "MA" },
+  { service: "Microsoft 365", plan: "Personal", period: "monthly", price_mad: 39, currency: "MAD", country_code: "MA" },
+  { service: "Microsoft 365", plan: "Family", period: "monthly", price_mad: 49, currency: "MAD", country_code: "MA" },
+  { service: "Dropbox", plan: "Plus", period: "monthly", price_mad: 29, currency: "MAD", country_code: "MA" },
+  { service: "Adobe Creative Cloud", plan: "Photography (20GB)", period: "monthly", price_mad: 99, currency: "MAD", country_code: "MA" },
+  { service: "Adobe Creative Cloud", plan: "Photography (1TB)", period: "monthly", price_mad: 199, currency: "MAD", country_code: "MA" },
+  { service: "Adobe Creative Cloud", plan: "Lightroom (1TB)", period: "monthly", price_mad: 99, currency: "MAD", country_code: "MA" },
+  { service: "Adobe Creative Cloud", plan: "All Apps", period: "monthly", price_mad: 599, currency: "MAD", country_code: "MA" },
+  { service: "Adobe Creative Cloud", plan: "Photoshop", period: "monthly", price_mad: 229, currency: "MAD", country_code: "MA" },
+  { service: "PlayStation Plus", plan: "Essential", period: "monthly", price_mad: 29, currency: "MAD", country_code: "MA" },
+  { service: "PlayStation Plus", plan: "Extra", period: "monthly", price_mad: 49, currency: "MAD", country_code: "MA" },
+  { service: "Nintendo Switch Online", plan: "Individual", period: "monthly", price_mad: 10, currency: "MAD", country_code: "MA" },
+  { service: "Google One", plan: "100GB", period: "monthly", price_mad: 19, currency: "MAD", country_code: "MA" },
+  { service: "Google One", plan: "200GB", period: "monthly", price_mad: 29, currency: "MAD", country_code: "MA" },
+  { service: "Cursor", plan: "Pro", period: "monthly", price_mad: 199, currency: "MAD", country_code: "MA" },
+  { service: "Cursor", plan: "Pro+", period: "monthly", price_mad: 599, currency: "MAD", country_code: "MA" },
+  { service: "Cursor", plan: "Ultra", period: "monthly", price_mad: 1999, currency: "MAD", country_code: "MA" },
+  { service: "ChatGPT", plan: "Plus", period: "monthly", price_mad: 199, currency: "MAD", country_code: "MA" },
+  { service: "ChatGPT", plan: "Pro", period: "monthly", price_mad: 1999, currency: "MAD", country_code: "MA" },
+  { service: "ChatGPT", plan: "Team", period: "monthly", price_mad: 299, currency: "MAD", country_code: "MA" },
+  { service: "Claude", plan: "Pro", period: "monthly", price_mad: 199, currency: "MAD", country_code: "MA" },
+  { service: "Tidal", plan: "HiFi", period: "monthly", price_mad: 29, currency: "MAD", country_code: "MA" },
+  { service: "Deezer", plan: "Premium", period: "monthly", price_mad: 19, currency: "MAD", country_code: "MA" },
+  { service: "Deezer", plan: "Family", period: "monthly", price_mad: 29, currency: "MAD", country_code: "MA" },
+
+  // —— United States (US) ——
+  { service: "Netflix", plan: "Basic", period: "monthly", price_mad: 15.49, currency: "USD", country_code: "US" },
+  { service: "Netflix", plan: "Standard", period: "monthly", price_mad: 22.99, currency: "USD", country_code: "US" },
+  { service: "Netflix", plan: "Premium", period: "monthly", price_mad: 22.99, currency: "USD", country_code: "US" },
+  { service: "Spotify", plan: "Individual", period: "monthly", price_mad: 10.99, currency: "USD", country_code: "US" },
+  { service: "Spotify", plan: "Duo", period: "monthly", price_mad: 14.99, currency: "USD", country_code: "US" },
+  { service: "Spotify", plan: "Family", period: "monthly", price_mad: 16.99, currency: "USD", country_code: "US" },
+  { service: "Spotify", plan: "Student", period: "monthly", price_mad: 5.99, currency: "USD", country_code: "US" },
+  { service: "YouTube Premium", plan: "Premium", period: "monthly", price_mad: 13.99, currency: "USD", country_code: "US" },
+  { service: "Disney+", plan: "Standard", period: "monthly", price_mad: 7.99, currency: "USD", country_code: "US" },
+  { service: "Disney+", plan: "Premium", period: "monthly", price_mad: 13.99, currency: "USD", country_code: "US" },
+  { service: "Amazon Prime", plan: "Prime", period: "monthly", price_mad: 14.99, currency: "USD", country_code: "US" },
+  { service: "Apple Music", plan: "Individual", period: "monthly", price_mad: 10.99, currency: "USD", country_code: "US" },
+  { service: "Apple Music", plan: "Family", period: "monthly", price_mad: 16.99, currency: "USD", country_code: "US" },
+  { service: "Apple Music", plan: "Student", period: "monthly", price_mad: 5.99, currency: "USD", country_code: "US" },
+  { service: "Microsoft 365", plan: "Personal", period: "monthly", price_mad: 6.99, currency: "USD", country_code: "US" },
+  { service: "Microsoft 365", plan: "Family", period: "monthly", price_mad: 9.99, currency: "USD", country_code: "US" },
+  { service: "Adobe Creative Cloud", plan: "Photography (20GB)", period: "monthly", price_mad: 9.99, currency: "USD", country_code: "US" },
+  { service: "Adobe Creative Cloud", plan: "Photography (1TB)", period: "monthly", price_mad: 19.99, currency: "USD", country_code: "US" },
+  { service: "Adobe Creative Cloud", plan: "Lightroom (1TB)", period: "monthly", price_mad: 9.99, currency: "USD", country_code: "US" },
+  { service: "Adobe Creative Cloud", plan: "All Apps", period: "monthly", price_mad: 59.99, currency: "USD", country_code: "US" },
+  { service: "Adobe Creative Cloud", plan: "Photoshop", period: "monthly", price_mad: 22.99, currency: "USD", country_code: "US" },
+  { service: "HBO Max", plan: "With Ads", period: "monthly", price_mad: 9.99, currency: "USD", country_code: "US" },
+  { service: "Hulu", plan: "Basic", period: "monthly", price_mad: 7.99, currency: "USD", country_code: "US" },
+  { service: "Google One", plan: "100GB", period: "monthly", price_mad: 1.99, currency: "USD", country_code: "US" },
+  { service: "Google One", plan: "200GB", period: "monthly", price_mad: 2.99, currency: "USD", country_code: "US" },
+  { service: "Dropbox", plan: "Plus", period: "monthly", price_mad: 11.99, currency: "USD", country_code: "US" },
+  { service: "Canva", plan: "Pro", period: "monthly", price_mad: 12.99, currency: "USD", country_code: "US" },
+  { service: "Xbox Game Pass", plan: "Core", period: "monthly", price_mad: 9.99, currency: "USD", country_code: "US" },
+  { service: "Cursor", plan: "Pro", period: "monthly", price_mad: 20, currency: "USD", country_code: "US" },
+  { service: "Cursor", plan: "Pro", period: "yearly", price_mad: 192, currency: "USD", country_code: "US" },
+  { service: "Cursor", plan: "Pro+", period: "monthly", price_mad: 60, currency: "USD", country_code: "US" },
+  { service: "Cursor", plan: "Ultra", period: "monthly", price_mad: 200, currency: "USD", country_code: "US" },
+  { service: "ChatGPT", plan: "Plus", period: "monthly", price_mad: 20, currency: "USD", country_code: "US" },
+  { service: "ChatGPT", plan: "Pro", period: "monthly", price_mad: 200, currency: "USD", country_code: "US" },
+  { service: "ChatGPT", plan: "Team", period: "monthly", price_mad: 30, currency: "USD", country_code: "US" },
+  { service: "Claude", plan: "Pro", period: "monthly", price_mad: 20, currency: "USD", country_code: "US" },
+
+  // —— France (FR) ——
+  { service: "Netflix", plan: "Basic", period: "monthly", price_mad: 5.99, currency: "EUR", country_code: "FR" },
+  { service: "Netflix", plan: "Standard", period: "monthly", price_mad: 13.49, currency: "EUR", country_code: "FR" },
+  { service: "Netflix", plan: "Premium", period: "monthly", price_mad: 17.99, currency: "EUR", country_code: "FR" },
+  { service: "Spotify", plan: "Individual", period: "monthly", price_mad: 10.99, currency: "EUR", country_code: "FR" },
+  { service: "Spotify", plan: "Duo", period: "monthly", price_mad: 14.99, currency: "EUR", country_code: "FR" },
+  { service: "Spotify", plan: "Family", period: "monthly", price_mad: 16.99, currency: "EUR", country_code: "FR" },
+  { service: "Spotify", plan: "Student", period: "monthly", price_mad: 5.99, currency: "EUR", country_code: "FR" },
+  { service: "YouTube Premium", plan: "Premium", period: "monthly", price_mad: 11.99, currency: "EUR", country_code: "FR" },
+  { service: "Disney+", plan: "Standard", period: "monthly", price_mad: 8.99, currency: "EUR", country_code: "FR" },
+  { service: "Disney+", plan: "Premium", period: "monthly", price_mad: 11.99, currency: "EUR", country_code: "FR" },
+  { service: "Amazon Prime", plan: "Prime", period: "monthly", price_mad: 6.99, currency: "EUR", country_code: "FR" },
+  { service: "Canal+", plan: "Essentiel", period: "monthly", price_mad: 19.99, currency: "EUR", country_code: "FR" },
+  { service: "Microsoft 365", plan: "Personal", period: "monthly", price_mad: 6.99, currency: "EUR", country_code: "FR" },
+  { service: "Microsoft 365", plan: "Family", period: "monthly", price_mad: 8.99, currency: "EUR", country_code: "FR" },
+  { service: "Apple Music", plan: "Individual", period: "monthly", price_mad: 10.99, currency: "EUR", country_code: "FR" },
+  { service: "Apple Music", plan: "Student", period: "monthly", price_mad: 5.99, currency: "EUR", country_code: "FR" },
+  { service: "Deezer", plan: "Premium", period: "monthly", price_mad: 10.99, currency: "EUR", country_code: "FR" },
+  { service: "Deezer", plan: "Family", period: "monthly", price_mad: 16.99, currency: "EUR", country_code: "FR" },
+  { service: "Google One", plan: "100GB", period: "monthly", price_mad: 1.99, currency: "EUR", country_code: "FR" },
+  { service: "Canva", plan: "Pro", period: "monthly", price_mad: 12.99, currency: "EUR", country_code: "FR" },
+  { service: "Adobe Creative Cloud", plan: "Photography (20GB)", period: "monthly", price_mad: 10.99, currency: "EUR", country_code: "FR" },
+  { service: "Adobe Creative Cloud", plan: "Photography (1TB)", period: "monthly", price_mad: 19.99, currency: "EUR", country_code: "FR" },
+  { service: "Adobe Creative Cloud", plan: "Lightroom (1TB)", period: "monthly", price_mad: 10.99, currency: "EUR", country_code: "FR" },
+  { service: "Adobe Creative Cloud", plan: "All Apps", period: "monthly", price_mad: 67.01, currency: "EUR", country_code: "FR" },
+  { service: "Adobe Creative Cloud", plan: "Photoshop", period: "monthly", price_mad: 26.21, currency: "EUR", country_code: "FR" },
+  { service: "Cursor", plan: "Pro", period: "monthly", price_mad: 20, currency: "EUR", country_code: "FR" },
+  { service: "Cursor", plan: "Pro+", period: "monthly", price_mad: 60, currency: "EUR", country_code: "FR" },
+  { service: "Cursor", plan: "Ultra", period: "monthly", price_mad: 200, currency: "EUR", country_code: "FR" },
+  { service: "ChatGPT", plan: "Plus", period: "monthly", price_mad: 20, currency: "EUR", country_code: "FR" },
+  { service: "ChatGPT", plan: "Pro", period: "monthly", price_mad: 200, currency: "EUR", country_code: "FR" },
+  { service: "ChatGPT", plan: "Team", period: "monthly", price_mad: 30, currency: "EUR", country_code: "FR" },
+  { service: "Claude", plan: "Pro", period: "monthly", price_mad: 20, currency: "EUR", country_code: "FR" },
+
+  // —— United Kingdom (GB) ——
+  { service: "Netflix", plan: "Basic", period: "monthly", price_mad: 4.99, currency: "GBP", country_code: "GB" },
+  { service: "Netflix", plan: "Standard", period: "monthly", price_mad: 10.99, currency: "GBP", country_code: "GB" },
+  { service: "Netflix", plan: "Premium", period: "monthly", price_mad: 15.99, currency: "GBP", country_code: "GB" },
+  { service: "Spotify", plan: "Individual", period: "monthly", price_mad: 10.99, currency: "GBP", country_code: "GB" },
+  { service: "Spotify", plan: "Duo", period: "monthly", price_mad: 14.99, currency: "GBP", country_code: "GB" },
+  { service: "Spotify", plan: "Family", period: "monthly", price_mad: 16.99, currency: "GBP", country_code: "GB" },
+  { service: "Spotify", plan: "Student", period: "monthly", price_mad: 5.99, currency: "GBP", country_code: "GB" },
+  { service: "YouTube Premium", plan: "Premium", period: "monthly", price_mad: 10.99, currency: "GBP", country_code: "GB" },
+  { service: "Disney+", plan: "Standard", period: "monthly", price_mad: 7.99, currency: "GBP", country_code: "GB" },
+  { service: "Disney+", plan: "Premium", period: "monthly", price_mad: 10.99, currency: "GBP", country_code: "GB" },
+  { service: "Amazon Prime", plan: "Prime", period: "monthly", price_mad: 8.99, currency: "GBP", country_code: "GB" },
+  { service: "Apple Music", plan: "Individual", period: "monthly", price_mad: 10.99, currency: "GBP", country_code: "GB" },
+  { service: "Apple Music", plan: "Student", period: "monthly", price_mad: 5.99, currency: "GBP", country_code: "GB" },
+  { service: "Microsoft 365", plan: "Personal", period: "monthly", price_mad: 5.99, currency: "GBP", country_code: "GB" },
+  { service: "Microsoft 365", plan: "Family", period: "monthly", price_mad: 7.99, currency: "GBP", country_code: "GB" },
+  { service: "BBC iPlayer", plan: "License", period: "monthly", price_mad: 15.50, currency: "GBP", country_code: "GB" },
+  { service: "Now TV", plan: "Entertainment", period: "monthly", price_mad: 9.99, currency: "GBP", country_code: "GB" },
+  { service: "Google One", plan: "100GB", period: "monthly", price_mad: 1.59, currency: "GBP", country_code: "GB" },
+  { service: "Canva", plan: "Pro", period: "monthly", price_mad: 10.99, currency: "GBP", country_code: "GB" },
+  { service: "Adobe Creative Cloud", plan: "Photography (20GB)", period: "monthly", price_mad: 9.98, currency: "GBP", country_code: "GB" },
+  { service: "Adobe Creative Cloud", plan: "Photography (1TB)", period: "monthly", price_mad: 19.97, currency: "GBP", country_code: "GB" },
+  { service: "Adobe Creative Cloud", plan: "Lightroom (1TB)", period: "monthly", price_mad: 9.98, currency: "GBP", country_code: "GB" },
+  { service: "Adobe Creative Cloud", plan: "All Apps", period: "monthly", price_mad: 59.99, currency: "GBP", country_code: "GB" },
+  { service: "Adobe Creative Cloud", plan: "Photoshop", period: "monthly", price_mad: 22.98, currency: "GBP", country_code: "GB" },
+  { service: "Cursor", plan: "Pro", period: "monthly", price_mad: 20, currency: "GBP", country_code: "GB" },
+  { service: "Cursor", plan: "Pro+", period: "monthly", price_mad: 60, currency: "GBP", country_code: "GB" },
+  { service: "Cursor", plan: "Ultra", period: "monthly", price_mad: 200, currency: "GBP", country_code: "GB" },
+  { service: "ChatGPT", plan: "Plus", period: "monthly", price_mad: 20, currency: "GBP", country_code: "GB" },
+  { service: "ChatGPT", plan: "Pro", period: "monthly", price_mad: 200, currency: "GBP", country_code: "GB" },
+  { service: "ChatGPT", plan: "Team", period: "monthly", price_mad: 25, currency: "GBP", country_code: "GB" },
+  { service: "Claude", plan: "Pro", period: "monthly", price_mad: 18, currency: "GBP", country_code: "GB" },
+
+  // —— Canada (CA) ——
+  { service: "Netflix", plan: "Basic", period: "monthly", price_mad: 9.99, currency: "CAD", country_code: "CA" },
+  { service: "Netflix", plan: "Standard", period: "monthly", price_mad: 16.49, currency: "CAD", country_code: "CA" },
+  { service: "Netflix", plan: "Premium", period: "monthly", price_mad: 20.99, currency: "CAD", country_code: "CA" },
+  { service: "Spotify", plan: "Individual", period: "monthly", price_mad: 10.99, currency: "CAD", country_code: "CA" },
+  { service: "Spotify", plan: "Duo", period: "monthly", price_mad: 14.99, currency: "CAD", country_code: "CA" },
+  { service: "Spotify", plan: "Family", period: "monthly", price_mad: 16.99, currency: "CAD", country_code: "CA" },
+  { service: "Spotify", plan: "Student", period: "monthly", price_mad: 5.99, currency: "CAD", country_code: "CA" },
+  { service: "Disney+", plan: "Standard", period: "monthly", price_mad: 11.99, currency: "CAD", country_code: "CA" },
+  { service: "Disney+", plan: "Premium", period: "monthly", price_mad: 14.99, currency: "CAD", country_code: "CA" },
+  { service: "Amazon Prime", plan: "Prime", period: "monthly", price_mad: 9.99, currency: "CAD", country_code: "CA" },
+  { service: "Apple Music", plan: "Individual", period: "monthly", price_mad: 10.99, currency: "CAD", country_code: "CA" },
+  { service: "Apple Music", plan: "Student", period: "monthly", price_mad: 5.99, currency: "CAD", country_code: "CA" },
+  { service: "Microsoft 365", plan: "Personal", period: "monthly", price_mad: 6.99, currency: "CAD", country_code: "CA" },
+  { service: "Microsoft 365", plan: "Family", period: "monthly", price_mad: 9.99, currency: "CAD", country_code: "CA" },
+  { service: "YouTube Premium", plan: "Premium", period: "monthly", price_mad: 13.99, currency: "CAD", country_code: "CA" },
+  { service: "Google One", plan: "100GB", period: "monthly", price_mad: 2.79, currency: "CAD", country_code: "CA" },
+  { service: "Adobe Creative Cloud", plan: "Photography (20GB)", period: "monthly", price_mad: 12.99, currency: "CAD", country_code: "CA" },
+  { service: "Adobe Creative Cloud", plan: "Photography (1TB)", period: "monthly", price_mad: 25.99, currency: "CAD", country_code: "CA" },
+  { service: "Adobe Creative Cloud", plan: "Lightroom (1TB)", period: "monthly", price_mad: 12.99, currency: "CAD", country_code: "CA" },
+  { service: "Adobe Creative Cloud", plan: "All Apps", period: "monthly", price_mad: 76.99, currency: "CAD", country_code: "CA" },
+  { service: "Adobe Creative Cloud", plan: "Photoshop", period: "monthly", price_mad: 29.99, currency: "CAD", country_code: "CA" },
+  { service: "Cursor", plan: "Pro", period: "monthly", price_mad: 27, currency: "CAD", country_code: "CA" },
+  { service: "Cursor", plan: "Pro+", period: "monthly", price_mad: 81, currency: "CAD", country_code: "CA" },
+  { service: "Cursor", plan: "Ultra", period: "monthly", price_mad: 270, currency: "CAD", country_code: "CA" },
+  { service: "ChatGPT", plan: "Plus", period: "monthly", price_mad: 27, currency: "CAD", country_code: "CA" },
+  { service: "ChatGPT", plan: "Pro", period: "monthly", price_mad: 270, currency: "CAD", country_code: "CA" },
+  { service: "ChatGPT", plan: "Team", period: "monthly", price_mad: 40, currency: "CAD", country_code: "CA" },
+  { service: "Claude", plan: "Pro", period: "monthly", price_mad: 27, currency: "CAD", country_code: "CA" },
+
+  // —— Germany (DE) ——
+  { service: "Netflix", plan: "Basic", period: "monthly", price_mad: 4.99, currency: "EUR", country_code: "DE" },
+  { service: "Netflix", plan: "Standard", period: "monthly", price_mad: 12.99, currency: "EUR", country_code: "DE" },
+  { service: "Netflix", plan: "Premium", period: "monthly", price_mad: 17.99, currency: "EUR", country_code: "DE" },
+  { service: "Spotify", plan: "Individual", period: "monthly", price_mad: 10.99, currency: "EUR", country_code: "DE" },
+  { service: "Spotify", plan: "Duo", period: "monthly", price_mad: 14.99, currency: "EUR", country_code: "DE" },
+  { service: "Spotify", plan: "Family", period: "monthly", price_mad: 16.99, currency: "EUR", country_code: "DE" },
+  { service: "Spotify", plan: "Student", period: "monthly", price_mad: 5.99, currency: "EUR", country_code: "DE" },
+  { service: "Disney+", plan: "Standard", period: "monthly", price_mad: 8.99, currency: "EUR", country_code: "DE" },
+  { service: "Disney+", plan: "Premium", period: "monthly", price_mad: 11.99, currency: "EUR", country_code: "DE" },
+  { service: "Amazon Prime", plan: "Prime", period: "monthly", price_mad: 8.99, currency: "EUR", country_code: "DE" },
+  { service: "Apple Music", plan: "Individual", period: "monthly", price_mad: 10.99, currency: "EUR", country_code: "DE" },
+  { service: "Apple Music", plan: "Student", period: "monthly", price_mad: 5.99, currency: "EUR", country_code: "DE" },
+  { service: "Microsoft 365", plan: "Personal", period: "monthly", price_mad: 6.99, currency: "EUR", country_code: "DE" },
+  { service: "Microsoft 365", plan: "Family", period: "monthly", price_mad: 8.99, currency: "EUR", country_code: "DE" },
+  { service: "YouTube Premium", plan: "Premium", period: "monthly", price_mad: 11.99, currency: "EUR", country_code: "DE" },
+  { service: "Adobe Creative Cloud", plan: "Photography (20GB)", period: "monthly", price_mad: 10.99, currency: "EUR", country_code: "DE" },
+  { service: "Adobe Creative Cloud", plan: "Photography (1TB)", period: "monthly", price_mad: 19.99, currency: "EUR", country_code: "DE" },
+  { service: "Adobe Creative Cloud", plan: "Lightroom (1TB)", period: "monthly", price_mad: 10.99, currency: "EUR", country_code: "DE" },
+  { service: "Adobe Creative Cloud", plan: "All Apps", period: "monthly", price_mad: 67.01, currency: "EUR", country_code: "DE" },
+  { service: "Adobe Creative Cloud", plan: "Photoshop", period: "monthly", price_mad: 26.21, currency: "EUR", country_code: "DE" },
+  { service: "Cursor", plan: "Pro", period: "monthly", price_mad: 20, currency: "EUR", country_code: "DE" },
+  { service: "Cursor", plan: "Pro+", period: "monthly", price_mad: 60, currency: "EUR", country_code: "DE" },
+  { service: "Cursor", plan: "Ultra", period: "monthly", price_mad: 200, currency: "EUR", country_code: "DE" },
+  { service: "ChatGPT", plan: "Plus", period: "monthly", price_mad: 20, currency: "EUR", country_code: "DE" },
+  { service: "ChatGPT", plan: "Pro", period: "monthly", price_mad: 200, currency: "EUR", country_code: "DE" },
+  { service: "ChatGPT", plan: "Team", period: "monthly", price_mad: 30, currency: "EUR", country_code: "DE" },
+  { service: "Claude", plan: "Pro", period: "monthly", price_mad: 20, currency: "EUR", country_code: "DE" },
+
+  // —— UAE (AE) ——
+  { service: "Netflix", plan: "Basic", period: "monthly", price_mad: 29, currency: "AED", country_code: "AE" },
+  { service: "Netflix", plan: "Standard", period: "monthly", price_mad: 42, currency: "AED", country_code: "AE" },
+  { service: "Netflix", plan: "Premium", period: "monthly", price_mad: 55, currency: "AED", country_code: "AE" },
+  { service: "Spotify", plan: "Individual", period: "monthly", price_mad: 19.99, currency: "AED", country_code: "AE" },
+  { service: "Spotify", plan: "Duo", period: "monthly", price_mad: 24.99, currency: "AED", country_code: "AE" },
+  { service: "Spotify", plan: "Family", period: "monthly", price_mad: 29.99, currency: "AED", country_code: "AE" },
+  { service: "Spotify", plan: "Student", period: "monthly", price_mad: 9.99, currency: "AED", country_code: "AE" },
+  { service: "Disney+", plan: "Standard", period: "monthly", price_mad: 33, currency: "AED", country_code: "AE" },
+  { service: "Disney+", plan: "Premium", period: "monthly", price_mad: 50, currency: "AED", country_code: "AE" },
+  { service: "Amazon Prime", plan: "Prime", period: "monthly", price_mad: 16, currency: "AED", country_code: "AE" },
+  { service: "Apple Music", plan: "Individual", period: "monthly", price_mad: 19.99, currency: "AED", country_code: "AE" },
+  { service: "Apple Music", plan: "Student", period: "monthly", price_mad: 9.99, currency: "AED", country_code: "AE" },
+  { service: "Shahid", plan: "VIP", period: "monthly", price_mad: 35, currency: "AED", country_code: "AE" },
+  { service: "Starzplay", plan: "Premium", period: "monthly", price_mad: 35, currency: "AED", country_code: "AE" },
+  { service: "Microsoft 365", plan: "Personal", period: "monthly", price_mad: 34, currency: "AED", country_code: "AE" },
+  { service: "YouTube Premium", plan: "Premium", period: "monthly", price_mad: 23.99, currency: "AED", country_code: "AE" },
+  { service: "Cursor", plan: "Pro", period: "monthly", price_mad: 73, currency: "AED", country_code: "AE" },
+  { service: "Cursor", plan: "Pro+", period: "monthly", price_mad: 220, currency: "AED", country_code: "AE" },
+  { service: "Cursor", plan: "Ultra", period: "monthly", price_mad: 735, currency: "AED", country_code: "AE" },
+  { service: "ChatGPT", plan: "Plus", period: "monthly", price_mad: 73, currency: "AED", country_code: "AE" },
+  { service: "ChatGPT", plan: "Pro", period: "monthly", price_mad: 735, currency: "AED", country_code: "AE" },
+  { service: "ChatGPT", plan: "Team", period: "monthly", price_mad: 110, currency: "AED", country_code: "AE" },
+  { service: "Claude", plan: "Pro", period: "monthly", price_mad: 73, currency: "AED", country_code: "AE" },
+
+  // —— Egypt (EG) ——
+  { service: "Netflix", plan: "Basic", period: "monthly", price_mad: 99, currency: "EGP", country_code: "EG" },
+  { service: "Netflix", plan: "Standard", period: "monthly", price_mad: 165, currency: "EGP", country_code: "EG" },
+  { service: "Netflix", plan: "Premium", period: "monthly", price_mad: 215, currency: "EGP", country_code: "EG" },
+  { service: "Spotify", plan: "Individual", period: "monthly", price_mad: 59.99, currency: "EGP", country_code: "EG" },
+  { service: "Spotify", plan: "Duo", period: "monthly", price_mad: 74.99, currency: "EGP", country_code: "EG" },
+  { service: "Spotify", plan: "Family", period: "monthly", price_mad: 89.99, currency: "EGP", country_code: "EG" },
+  { service: "Spotify", plan: "Student", period: "monthly", price_mad: 29.99, currency: "EGP", country_code: "EG" },
+  { service: "Disney+", plan: "Standard", period: "monthly", price_mad: 99, currency: "EGP", country_code: "EG" },
+  { service: "Disney+", plan: "Premium", period: "monthly", price_mad: 149, currency: "EGP", country_code: "EG" },
+  { service: "Anghami", plan: "Premium", period: "monthly", price_mad: 29.99, currency: "EGP", country_code: "EG" },
+  { service: "Shahid", plan: "VIP", period: "monthly", price_mad: 99, currency: "EGP", country_code: "EG" },
+  { service: "Apple Music", plan: "Individual", period: "monthly", price_mad: 59.99, currency: "EGP", country_code: "EG" },
+  { service: "Apple Music", plan: "Student", period: "monthly", price_mad: 29.99, currency: "EGP", country_code: "EG" },
+  { service: "YouTube Premium", plan: "Premium", period: "monthly", price_mad: 65.99, currency: "EGP", country_code: "EG" },
+  { service: "Microsoft 365", plan: "Personal", period: "monthly", price_mad: 199, currency: "EGP", country_code: "EG" },
+  { service: "Microsoft 365", plan: "Family", period: "monthly", price_mad: 249, currency: "EGP", country_code: "EG" },
+  { service: "Cursor", plan: "Pro", period: "monthly", price_mad: 620, currency: "EGP", country_code: "EG" },
+  { service: "Cursor", plan: "Pro+", period: "monthly", price_mad: 1860, currency: "EGP", country_code: "EG" },
+  { service: "Cursor", plan: "Ultra", period: "monthly", price_mad: 6200, currency: "EGP", country_code: "EG" },
+  { service: "ChatGPT", plan: "Plus", period: "monthly", price_mad: 620, currency: "EGP", country_code: "EG" },
+  { service: "ChatGPT", plan: "Pro", period: "monthly", price_mad: 6200, currency: "EGP", country_code: "EG" },
+  { service: "ChatGPT", plan: "Team", period: "monthly", price_mad: 930, currency: "EGP", country_code: "EG" },
+  { service: "Claude", plan: "Pro", period: "monthly", price_mad: 620, currency: "EGP", country_code: "EG" },
+];
+
+async function main() {
+  console.log("Seeding subscription_catalog (multi-country)...");
+
+  const { error: deleteError } = await supabase.from("subscription_catalog").delete().neq("id", "00000000-0000-0000-0000-000000000000");
+  if (deleteError) {
+    console.error("Delete existing catalog failed:", deleteError);
+    process.exit(1);
+  }
+
+  const { data, error } = await supabase.from("subscription_catalog").insert(CATALOG).select("id");
+  if (error) {
+    console.error("Insert catalog failed:", error);
+    process.exit(1);
+  }
+
+  const byCountry = CATALOG.reduce<Record<string, number>>((acc, row) => {
+    acc[row.country_code] = (acc[row.country_code] || 0) + 1;
+    return acc;
+  }, {});
+
+  console.log("Inserted", data?.length ?? 0, "rows.");
+  console.log("By country:", byCountry);
+  console.log("Done.");
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

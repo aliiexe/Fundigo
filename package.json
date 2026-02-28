@@ -7,7 +7,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
-    "seed": "npx ts-node scripts/seed_morocco_demo.ts"
+    "seed": "npx ts-node scripts/seed_morocco_demo.ts",
+    "seed:catalog": "npx ts-node db/seed/subscription_catalog_multi_country.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.38.2",

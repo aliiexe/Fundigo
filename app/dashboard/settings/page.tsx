@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { SUPPORTED_CURRENCIES } from "@/lib/currency";
+import { SUPPORTED_COUNTRIES } from "@/lib/countries";
 import {
   EXPORT_SECTIONS,
   EXPORT_SECTION_LABELS,
@@ -18,8 +19,10 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [preferredCurrency, setPreferredCurrency] = useState("USD");
+  const [countryCode, setCountryCode] = useState<string | null>(null);
   const [startingBalance, setStartingBalance] = useState("");
   const [savingCurrency, setSavingCurrency] = useState(false);
+  const [savingCountry, setSavingCountry] = useState(false);
   const [savingBalance, setSavingBalance] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>(() => getStoredExportOptions()?.format ?? DEFAULT_EXPORT_OPTIONS.format);
   const [exportInclude, setExportInclude] = useState<ExportSection[]>(() => getStoredExportOptions()?.include ?? DEFAULT_EXPORT_OPTIONS.include);
@@ -34,6 +37,7 @@ export default function SettingsPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.preferred_currency) setPreferredCurrency(data.preferred_currency);
+        setCountryCode(data?.country_code ?? null);
         if (data?.starting_balance != null) setStartingBalance(String(data.starting_balance));
       })
       .catch(() => {});
@@ -53,6 +57,24 @@ export default function SettingsPage() {
       })
       .catch(() => toast.error("Failed to update currency"))
       .finally(() => setSavingCurrency(false));
+  };
+
+  const handleCountryChange = (value: string) => {
+    if (value === countryCode) return;
+    setSavingCountry(true);
+    fetch("/api/v1/auth/ensure-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ country_code: value }),
+    })
+      .then((r) => {
+        if (r.ok) {
+          setCountryCode(value);
+          toast.success("Country updated. Subscription catalog will show plans for your region.");
+        } else toast.error("Failed to update country");
+      })
+      .catch(() => toast.error("Failed to update country"))
+      .finally(() => setSavingCountry(false));
   };
 
   const handleBalanceSave = () => {
@@ -147,6 +169,52 @@ export default function SettingsPage() {
           <p className="text-[#525252] text-sm">
             Manage your account (email, password) via Clerk. Use the profile button in the bottom left.
           </p>
+        </div>
+      </div>
+
+      {/* Country (subscription catalog region) */}
+      <div className="card">
+        <div className="p-5 space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h2 className="text-base font-medium text-[#e8e8e8] mb-1">Your country</h2>
+              <p className="text-[#525252] text-xs">Subscription catalog shows plans and prices for your region. Set in onboarding or here.</p>
+            </div>
+            {savingCountry && (
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 border-2 border-[#FF4000] border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-[#737373]">Saving…</span>
+              </div>
+            )}
+          </div>
+          {countryCode && (
+            <div className="flex items-center gap-2 text-sm text-[#a3a3a3]">
+              <span>Selected:</span>
+              <span className="text-[#e8e8e8] font-medium">
+                {SUPPORTED_COUNTRIES.find((c) => c.code === countryCode)?.flag}{" "}
+                {SUPPORTED_COUNTRIES.find((c) => c.code === countryCode)?.name ?? countryCode}
+              </span>
+            </div>
+          )}
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+            {SUPPORTED_COUNTRIES.map((c) => (
+              <button
+                key={c.code}
+                type="button"
+                onClick={() => handleCountryChange(c.code)}
+                disabled={savingCountry}
+                className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 disabled:opacity-60 ${
+                  countryCode === c.code
+                    ? "border-[#FF4000] bg-[#FF4000]/10 shadow-md shadow-[#FF4000]/10"
+                    : "border-[#1e1e1e] bg-[#111111] hover:border-[#2a2a2a] hover:bg-[#1a1a1b]"
+                }`}
+              >
+                <span className="text-2xl sm:text-3xl mb-1.5" aria-hidden>{c.flag}</span>
+                <span className="text-xs font-medium text-[#e8e8e8] truncate w-full text-center">{c.name}</span>
+                <span className="text-[10px] text-[#525252]">{c.code}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

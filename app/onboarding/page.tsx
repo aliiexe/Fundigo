@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { toast } from "sonner";
 import { SUPPORTED_CURRENCIES, DEFAULT_CURRENCY } from "@/lib/currency";
+import { SUPPORTED_COUNTRIES } from "@/lib/countries";
 import { Dropdown } from "@/components/ui/Dropdown";
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 6;
 
 export default function OnboardingPage() {
   const { isLoaded, isSignedIn } = useAuth();
@@ -20,6 +21,7 @@ export default function OnboardingPage() {
   const [showCustomProfession, setShowCustomProfession] = useState(false);
   const [primaryGoal, setPrimaryGoal] = useState("");
   const [showCustomGoal, setShowCustomGoal] = useState(false);
+  const [countryCode, setCountryCode] = useState<string | null>(null);
   const [preferredCurrency, setPreferredCurrency] = useState(DEFAULT_CURRENCY);
   const [startingBalance, setStartingBalance] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,7 +35,8 @@ export default function OnboardingPage() {
     fetch("/api/v1/me")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (data?.onboarding_completed_at) router.replace("/dashboard");
+        if (data?.onboarding_completed_at && data?.country_code) router.replace("/dashboard");
+        if (data?.country_code) setCountryCode(data.country_code);
       })
       .catch(() => {});
   }, [isLoaded, isSignedIn, router]);
@@ -66,18 +69,43 @@ export default function OnboardingPage() {
       return;
     }
 
-    if (step === 3) {
-      setStep((s) => s + 1);
-      return;
-    }
-
-    if (step === 4) {
+    if (step === 1) {
+      if (!countryCode) {
+        toast.error("Please select your country to continue");
+        return;
+      }
       setLoading(true);
       try {
         const res = await fetch("/api/v1/auth/ensure-user", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ complete_onboarding: true }),
+          body: JSON.stringify({ country_code: countryCode }),
+        });
+        if (!res.ok) throw new Error("Failed to save country");
+        setStep((s) => s + 1);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Failed to save");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
+    if (step === 4) {
+      setStep((s) => s + 1);
+      return;
+    }
+
+    if (step === 5) {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/v1/auth/ensure-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            country_code: countryCode ?? undefined,
+            complete_onboarding: true,
+          }),
         });
         if (!res.ok) throw new Error("Failed to complete onboarding");
         router.replace("/dashboard");
@@ -189,8 +217,43 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 1: About you */}
+        {/* Step 1: Country (required) */}
         {step === 1 && (
+          <div className="card p-6 space-y-5 animate-fade-in">
+            <div>
+              <h2 className="text-base font-medium text-[var(--text)] mb-0.5">
+                Where are you from?
+              </h2>
+              <p className="text-[var(--text-dim)] text-xs">
+                We’ll show subscription plans and prices for your country. This is required.
+              </p>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              {SUPPORTED_COUNTRIES.map((c) => (
+                <button
+                  key={c.code}
+                  type="button"
+                  onClick={() => setCountryCode(c.code)}
+                  className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 ${
+                    countryCode === c.code
+                      ? "border-[var(--accent)] bg-[var(--accent)]/10 shadow-lg shadow-[var(--accent)]/10"
+                      : "border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--text-dim)] hover:bg-[#1a1a1b]"
+                  }`}
+                >
+                  <span className="text-3xl sm:text-4xl mb-2" aria-hidden>{c.flag}</span>
+                  <span className="text-xs font-medium text-[var(--text)] truncate w-full text-center">{c.name}</span>
+                  <span className="text-[10px] text-[var(--text-muted)]">{c.code}</span>
+                </button>
+              ))}
+            </div>
+            {!countryCode && (
+              <p className="text-amber-500/90 text-xs">Please select your country to continue.</p>
+            )}
+          </div>
+        )}
+
+        {/* Step 2: About you */}
+        {step === 2 && (
           <div className="card p-6 space-y-5 animate-fade-in">
             <div>
               <h2 className="text-base font-medium text-[var(--text)] mb-0.5">
@@ -301,8 +364,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 2: Your finances */}
-        {step === 2 && (
+        {/* Step 3: Your finances */}
+        {step === 3 && (
           <div className="card p-6 space-y-5 animate-fade-in">
             <div>
               <h2 className="text-base font-medium text-[var(--text)] mb-0.5">
@@ -341,8 +404,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 3: Info */}
-        {step === 3 && (
+        {/* Step 4: Info */}
+        {step === 4 && (
           <div className="card p-6 animate-fade-in">
             <div className="text-center py-6">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[var(--accent-muted)] mb-5">
@@ -375,8 +438,8 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 4: Completion */}
-        {step === 4 && (
+        {/* Step 5: Completion */}
+        {step === 5 && (
           <div className="card p-6 animate-fade-in">
             <div className="text-center py-6">
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-[var(--success)]/10 mb-5">
@@ -422,7 +485,7 @@ export default function OnboardingPage() {
           <button
             type="button"
             onClick={saveAndNext}
-            disabled={loading || (step === 0 && !allConsented)}
+            disabled={loading || (step === 0 && !allConsented) || (step === 1 && !countryCode)}
             className="btn-primary"
           >
             {loading ? (
