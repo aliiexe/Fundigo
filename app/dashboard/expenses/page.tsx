@@ -8,8 +8,54 @@ import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Dropdown } from "@/components/ui/Dropdown";
 import { SearchInput } from "@/components/ui/SearchInput";
+import {
+  EXPENSE_CATEGORY_OTHER,
+  categoryFormFromStored,
+  categoryForAddSubmit,
+  categoryForEditSubmit,
+  expenseCategoryDropdownOptions,
+} from "@/lib/expenseCategories";
 
 type Expense = { id: string; merchant: string; amount: number; currency: string; category?: string; date: string };
+
+function CategoryPickFields({
+  mode,
+  preset,
+  custom,
+  onPreset,
+  onCustom,
+}: {
+  mode: "add" | "edit";
+  preset: string;
+  custom: string;
+  onPreset: (v: string) => void;
+  onCustom: (v: string) => void;
+}) {
+  return (
+    <>
+      <Dropdown
+        label="Category"
+        options={expenseCategoryDropdownOptions(mode)}
+        value={preset}
+        onChange={onPreset}
+        placeholder="Select…"
+      />
+      {preset === EXPENSE_CATEGORY_OTHER && (
+        <label className="block sm:col-span-2">
+          <span className="text-xs font-medium text-[#737373]">Custom category</span>
+          <input
+            type="text"
+            className="input-field mt-1.5"
+            placeholder="e.g. Pet care, Subscriptions"
+            value={custom}
+            onChange={(e) => onCustom(e.target.value)}
+            autoComplete="off"
+          />
+        </label>
+      )}
+    </>
+  );
+}
 
 const currencyOptions = SUPPORTED_CURRENCIES.map((c) => ({ value: c.code, label: `${c.flag} ${c.code} — ${c.name}` }));
 
@@ -37,7 +83,8 @@ export default function ExpensesPage() {
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState(DEFAULT_CURRENCY);
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
-  const [category, setCategory] = useState("");
+  const [categoryPreset, setCategoryPreset] = useState("");
+  const [categoryCustom, setCategoryCustom] = useState("");
   const [loading, setLoading] = useState(false);
   const [pageLoading, setPageLoading] = useState(true);
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -50,7 +97,8 @@ export default function ExpensesPage() {
   const [editAmount, setEditAmount] = useState("");
   const [editCurrency, setEditCurrency] = useState(DEFAULT_CURRENCY);
   const [editDate, setEditDate] = useState("");
-  const [editCategory, setEditCategory] = useState("");
+  const [editCategoryPreset, setEditCategoryPreset] = useState("");
+  const [editCategoryCustom, setEditCategoryCustom] = useState("");
 
   const [rates, setRates] = useState<Record<string, number>>({});
   const [scanModalOpen, setScanModalOpen] = useState(false);
@@ -67,7 +115,8 @@ export default function ExpensesPage() {
   const [scanAmount, setScanAmount] = useState("");
   const [scanDate, setScanDate] = useState("");
   const [scanCurrency, setScanCurrency] = useState(DEFAULT_CURRENCY);
-  const [scanCategory, setScanCategory] = useState("");
+  const [scanCategoryPreset, setScanCategoryPreset] = useState("");
+  const [scanCategoryCustom, setScanCategoryCustom] = useState("");
 
   const load = useCallback(() => {
     setPageLoading(true);
@@ -93,8 +142,11 @@ export default function ExpensesPage() {
   const totalMonth = list.reduce((s, e) => s + cx(e.amount, e.currency), 0);
   const monthLabel = new Date(Number(month.split("-")[0]), Number(month.split("-")[1]) - 1).toLocaleString("default", { month: "long", year: "numeric" });
 
-  const filtered = list.filter((e) =>
-    e.merchant.toLowerCase().includes(search.toLowerCase())
+  const q = search.toLowerCase();
+  const filtered = list.filter(
+    (e) =>
+      e.merchant.toLowerCase().includes(q) ||
+      (e.category?.toLowerCase().includes(q) ?? false)
   );
 
   const groupedByDate = filtered.reduce<Record<string, Expense[]>>((acc, e) => {
@@ -102,14 +154,25 @@ export default function ExpensesPage() {
     return acc;
   }, {});
 
-  const resetForm = () => { setMerchant(""); setAmount(""); setCategory(""); setDate(new Date().toISOString().slice(0, 10)); };
+  const resetForm = () => {
+    setMerchant("");
+    setAmount("");
+    setCategoryPreset("");
+    setCategoryCustom("");
+    setDate(new Date().toISOString().slice(0, 10));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const num = parseFloat(amount);
     if (!merchant.trim() || isNaN(num) || num <= 0) { toast.error("Please fill in merchant and amount"); return; }
+    if (categoryPreset === EXPENSE_CATEGORY_OTHER && !categoryCustom.trim()) {
+      toast.error("Enter a custom category or choose another option.");
+      return;
+    }
     setLoading(true);
     try {
+      const cat = categoryForAddSubmit(categoryPreset, categoryCustom);
       const res = await fetch("/api/v1/expenses/manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -117,7 +180,7 @@ export default function ExpensesPage() {
           merchant: merchant.trim(),
           amount: num,
           currency,
-          category: category.trim() || undefined,
+          ...(cat !== undefined ? { category: cat } : {}),
           date: date || undefined,
         }),
       });
@@ -144,7 +207,9 @@ export default function ExpensesPage() {
     setEditAmount(String(item.amount));
     setEditCurrency(item.currency);
     setEditDate(item.date);
-    setEditCategory(item.category || "");
+    const cf = categoryFormFromStored(item.category);
+    setEditCategoryPreset(cf.preset);
+    setEditCategoryCustom(cf.custom);
     setEditModalOpen(true);
   };
 
@@ -153,8 +218,13 @@ export default function ExpensesPage() {
     if (!editItem) return;
     const num = parseFloat(editAmount);
     if (!editMerchant.trim() || isNaN(num) || num <= 0) { toast.error("Please fill in merchant and amount"); return; }
+    if (editCategoryPreset === EXPENSE_CATEGORY_OTHER && !editCategoryCustom.trim()) {
+      toast.error("Enter a custom category, or choose “No category” or a preset.");
+      return;
+    }
     setLoading(true);
     try {
+      const category = categoryForEditSubmit(editCategoryPreset, editCategoryCustom);
       const res = await fetch(`/api/v1/expenses/${editItem.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -162,7 +232,7 @@ export default function ExpensesPage() {
           merchant: editMerchant.trim(),
           amount: num,
           currency: editCurrency,
-          category: editCategory.trim() || undefined,
+          category,
           date: editDate || undefined,
         }),
       });
@@ -205,7 +275,8 @@ export default function ExpensesPage() {
         setScanAmount(String(data.parsed.amount));
         setScanDate(data.parsed.date);
         setScanCurrency(data.parsed.currency || currency);
-        setScanCategory("");
+        setScanCategoryPreset("");
+        setScanCategoryCustom("");
       } else {
         setScanError(data.error || "Something went wrong. You can still add the expense manually below.");
       }
@@ -240,16 +311,21 @@ export default function ExpensesPage() {
       toast.error("Please enter an amount greater than 0.");
       return;
     }
+    if (scanCategoryPreset === EXPENSE_CATEGORY_OTHER && !scanCategoryCustom.trim()) {
+      toast.error("Enter a custom category or choose another option.");
+      return;
+    }
     const dateVal = toYYYYMMDD(scanDate);
     setLoading(true);
     try {
+      const cat = categoryForAddSubmit(scanCategoryPreset, scanCategoryCustom);
       const body: Record<string, unknown> = {
         merchant: scanMerchant.trim(),
         amount: num,
         currency: scanCurrency,
-        category: scanCategory.trim() || undefined,
         date: dateVal ?? new Date().toISOString().slice(0, 10),
       };
+      if (cat !== undefined) body.category = cat;
       if (scanParsed?.items?.length) {
         body.raw_text = JSON.stringify({ source: "scan", items: scanParsed.items });
       }
@@ -270,7 +346,8 @@ export default function ExpensesPage() {
       setScanMerchant("");
       setScanAmount("");
       setScanDate("");
-      setScanCategory("");
+      setScanCategoryPreset("");
+      setScanCategoryCustom("");
       await load();
     } catch (err) {
       console.error(err);
@@ -378,10 +455,18 @@ export default function ExpensesPage() {
               .sort(([a], [b]) => b.localeCompare(a))
               .map(([dateKey, items]) => (
                 <div key={dateKey}>
-                  <div className="px-4 sm:px-5 py-2 bg-[#0a0a0a]">
+                  <div className="px-4 sm:px-5 py-2 bg-[#0a0a0a] flex items-center justify-between gap-3">
                     <span className="text-xs font-medium text-[#525252]">
                       {new Date(dateKey + "T00:00:00").toLocaleDateString("default", { weekday: "long", month: "short", day: "numeric" })}
                     </span>
+                    <div className="flex items-center gap-2 shrink-0 min-w-0">
+                      <span className="text-[10px] uppercase tracking-wider text-[#525252] font-semibold whitespace-nowrap">
+                        Day total
+                      </span>
+                      <span className="text-xs font-medium tabular-nums text-[#a3a3a3] rounded-md bg-[#141414] border border-[#262626] px-2 py-1">
+                        -{formatCurrency(items.reduce((s, e) => s + cx(e.amount, e.currency), 0), currency)}
+                      </span>
+                    </div>
                   </div>
                   <ul className="divide-y divide-[#1e1e1e]">
                     {items.map((exp) => (
@@ -390,7 +475,12 @@ export default function ExpensesPage() {
                           <div className="w-8 h-8 shrink-0 rounded-lg bg-[#ef4444]/10 flex items-center justify-center">
                             <span className="text-[#ef4444] text-xs">↓</span>
                           </div>
-                          <p className="text-sm text-[#e8e8e8] font-medium truncate">{exp.merchant}</p>
+                          <div className="min-w-0">
+                            <p className="text-sm text-[#e8e8e8] font-medium truncate">{exp.merchant}</p>
+                            {exp.category ? (
+                              <p className="text-xs text-[#525252] truncate mt-0.5">{exp.category}</p>
+                            ) : null}
+                          </div>
                         </div>
                         <div className="flex items-center justify-between sm:justify-end gap-2">
                           <div className="flex items-center gap-1.5">
@@ -430,10 +520,13 @@ export default function ExpensesPage() {
               value={currency}
               onChange={setCurrency}
             />
-            <label className="block">
-              <span className="text-xs font-medium text-[#737373]">Category (optional)</span>
-              <input type="text" className="input-field" placeholder="e.g. Food, Transport" value={category} onChange={(e) => setCategory(e.target.value)} />
-            </label>
+            <CategoryPickFields
+              mode="add"
+              preset={categoryPreset}
+              custom={categoryCustom}
+              onPreset={setCategoryPreset}
+              onCustom={setCategoryCustom}
+            />
             <label className="block">
               <span className="text-xs font-medium text-[#737373]">Date</span>
               <input type="date" className="input-field" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -466,10 +559,13 @@ export default function ExpensesPage() {
               value={editCurrency}
               onChange={setEditCurrency}
             />
-            <label className="block">
-              <span className="text-xs font-medium text-[#737373]">Category (optional)</span>
-              <input type="text" className="input-field" placeholder="e.g. Food, Transport" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} />
-            </label>
+            <CategoryPickFields
+              mode="edit"
+              preset={editCategoryPreset}
+              custom={editCategoryCustom}
+              onPreset={setEditCategoryPreset}
+              onCustom={setEditCategoryCustom}
+            />
             <label className="block">
               <span className="text-xs font-medium text-[#737373]">Date</span>
               <input type="date" className="input-field" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
@@ -580,10 +676,13 @@ export default function ExpensesPage() {
                 <input type="number" step="0.01" min="0" className="input-field" value={scanAmount} onChange={(e) => setScanAmount(e.target.value)} required />
               </label>
               <Dropdown label="Currency" options={currencyOptions} value={scanCurrency} onChange={setScanCurrency} />
-              <label className="block">
-                <span className="text-xs font-medium text-[#737373]">Category (optional)</span>
-                <input type="text" className="input-field" placeholder="e.g. Food, Transport" value={scanCategory} onChange={(e) => setScanCategory(e.target.value)} />
-              </label>
+              <CategoryPickFields
+                mode="add"
+                preset={scanCategoryPreset}
+                custom={scanCategoryCustom}
+                onPreset={setScanCategoryPreset}
+                onCustom={setScanCategoryCustom}
+              />
               <label className="block">
                 <span className="text-xs font-medium text-[#737373]">Date</span>
                 <input type="date" className="input-field" value={scanDate} onChange={(e) => setScanDate(e.target.value)} />

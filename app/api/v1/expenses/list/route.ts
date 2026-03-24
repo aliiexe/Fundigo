@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("expenses")
-      .select("id, merchant_cipher, amount, currency, date")
+      .select("id, merchant_cipher, amount, currency, date, category_id")
       .eq("user_id", u.id)
       .order("date", { ascending: false })
       .limit(200);
@@ -33,7 +33,17 @@ export async function GET(request: Request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    const expenses = (data ?? []).map((e) => {
+    const rows = data ?? [];
+    const catIds = [...new Set(rows.map((e) => e.category_id).filter(Boolean))] as string[];
+    const idToName: Record<string, string> = {};
+    if (catIds.length > 0) {
+      const { data: cats } = await supabase.from("categories").select("id, name").in("id", catIds);
+      for (const c of cats ?? []) {
+        idToName[String(c.id)] = String(c.name);
+      }
+    }
+
+    const expenses = rows.map((e) => {
       let merchant = "Expense";
       try {
         const parsed = JSON.parse(e.merchant_cipher);
@@ -43,7 +53,9 @@ export async function GET(request: Request) {
       } catch {
         merchant = e.merchant_cipher;
       }
-      return { id: e.id, merchant, amount: Number(e.amount), currency: e.currency, date: e.date };
+      const category =
+        e.category_id && idToName[String(e.category_id)] ? idToName[String(e.category_id)] : undefined;
+      return { id: e.id, merchant, amount: Number(e.amount), currency: e.currency, date: e.date, category };
     });
 
     return NextResponse.json(expenses);

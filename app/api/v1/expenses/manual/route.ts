@@ -8,6 +8,7 @@ import { addExpenseManualBody } from "@/lib/validators";
 import { encryptText } from "@/lib/crypto";
 import { categorizeExpense } from "@/lib/ai";
 import { logTransaction } from "@/lib/transactions";
+import { ensureUserCategoryId } from "@/lib/userCategory";
 
 export async function POST(request: Request) {
   try {
@@ -34,25 +35,11 @@ export async function POST(request: Request) {
 
     let categoryId = parsed.data.category_id ?? null;
 
-    if (!categoryId && !parsed.data.category) {
+    if (parsed.data.category?.trim()) {
+      categoryId = await ensureUserCategoryId(supabase, u.id, parsed.data.category.trim());
+    } else if (!categoryId) {
       const suggestedCategory = await categorizeExpense(parsed.data.merchant, parsed.data.amount);
-      const { data: existingCat } = await supabase
-        .from("categories")
-        .select("id")
-        .eq("user_id", u.id)
-        .eq("name", suggestedCategory)
-        .single();
-
-      if (existingCat) {
-        categoryId = existingCat.id;
-      } else {
-        const { data: newCat } = await supabase
-          .from("categories")
-          .insert({ user_id: u.id, name: suggestedCategory })
-          .select("id")
-          .single();
-        if (newCat) categoryId = newCat.id;
-      }
+      categoryId = await ensureUserCategoryId(supabase, u.id, suggestedCategory);
     }
 
     const { data, error } = await supabase
@@ -71,7 +58,7 @@ export async function POST(request: Request) {
     if (error) throw error;
 
     let ai_category: string | null = null;
-    if (categoryId && !parsed.data.category_id && !parsed.data.category) {
+    if (categoryId && !parsed.data.category_id && !parsed.data.category?.trim()) {
       const { data: catRow } = await supabase.from("categories").select("name").eq("id", categoryId).single();
       if (catRow) ai_category = catRow.name;
     }

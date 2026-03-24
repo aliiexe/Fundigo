@@ -5,6 +5,7 @@ import { createServerClient } from "@/lib/supabase";
 import { getOrCreateUser } from "@/lib/user";
 import { encryptText } from "@/lib/crypto";
 import { logAudit } from "@/lib/audit";
+import { ensureUserCategoryId } from "@/lib/userCategory";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -30,7 +31,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
     if (body.amount !== undefined) updates.amount = body.amount;
     if (body.currency !== undefined) updates.currency = body.currency;
-    if (body.category_id !== undefined) updates.category_id = body.category_id;
+    if (body.category !== undefined) {
+      if (body.category === null || body.category === "") {
+        updates.category_id = null;
+      } else if (typeof body.category === "string") {
+        updates.category_id = await ensureUserCategoryId(supabase, u.id, body.category);
+      }
+    } else if (body.category_id !== undefined) {
+      updates.category_id = body.category_id;
+    }
     if (body.date !== undefined) updates.date = body.date;
     updates.updated_at = new Date().toISOString();
 

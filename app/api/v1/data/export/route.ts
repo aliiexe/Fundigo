@@ -8,9 +8,16 @@ import { auditLog } from "@/utils/logger";
 import {
   parseExportBody,
   toCsv,
+  toCsvColumns,
+  pickCsvRow,
   sanitizeForExport,
+  ALLOCATIONS_CSV_COLUMNS,
+  TRANSACTIONS_CSV_COLUMNS,
   type ExportSection,
 } from "@/lib/exportData";
+import { computeExpenseExportSummary, buildExpensesExportCsv } from "@/lib/expenseExportSummary";
+import { decryptText } from "@/lib/crypto";
+import { getRates } from "@/lib/exchange";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +94,52 @@ function rowsToCsvRows(rows: Record<string, unknown>[]): Record<string, unknown>
   return rows.map((r) => ({ ...r }));
 }
 
+function decryptExpenseCipher(cipher: string | null | undefined): string {
+  if (cipher == null || cipher === "") return "";
+  try {
+    const p = JSON.parse(cipher) as { ciphertext?: string; iv?: string; tag?: string };
+    if (p.ciphertext && p.iv && p.tag) return decryptText(p.ciphertext, p.iv, p.tag);
+  } catch {
+    return cipher;
+  }
+  return cipher;
+}
+
+async function buildExportExpenseRows(
+  supabase: ReturnType<typeof createServerClient>,
+  rows: Record<string, unknown>[]
+): Promise<Record<string, unknown>[]> {
+  const catIds = [...new Set(rows.map((r) => r.category_id).filter(Boolean))] as string[];
+  const idToName: Record<string, string> = {};
+  if (catIds.length > 0) {
+    const { data } = await supabase.from("categories").select("id, name").in("id", catIds);
+    for (const c of data ?? []) {
+      if (c && typeof c === "object" && "id" in c && "name" in c) {
+        idToName[String(c.id)] = String(c.name);
+      }
+    }
+  }
+
+  return rows.map((r) => {
+    const merchant = decryptExpenseCipher(r.merchant_cipher as string | undefined) || "Expense";
+    const details = decryptExpenseCipher(r.raw_text_cipher as string | undefined);
+    const catId = r.category_id as string | null | undefined;
+    const category = catId ? idToName[catId] ?? "" : "";
+    const created = r.created_at as string | null | undefined;
+    const recorded_at = created ? new Date(created).toISOString() : "";
+
+    return {
+      merchant,
+      amount: Number(r.amount),
+      currency: r.currency,
+      date: r.date,
+      category,
+      recorded_at,
+      details,
+    };
+  });
+}
+
 export async function POST(request: Request) {
   const forwarded =
     request.headers.get("x-forwarded-for") ??
@@ -112,12 +165,31 @@ export async function POST(request: Request) {
     const dbUserId = u.id;
 
     const raw = await fetchSections(supabase, dbUserId, include);
+    const expenseExportRows = include.includes("expenses")
+      ? await buildExportExpenseRows(supabase, raw.expenses as Record<string, unknown>[])
+      : [];
+
+    const expensesSanitized = include.includes("expenses")
+      ? (sanitizeForExport("expenses", expenseExportRows) as Record<string, unknown>[])
+      : null;
+    const preferredCurrency = u.preferred_currency ?? "USD";
+    const startingBalance = Number(u.starting_balance) || 0;
+    const expensesSummary = include.includes("expenses")
+      ? computeExpenseExportSummary(
+          expensesSanitized ?? [],
+          preferredCurrency,
+          await getRates("USD"),
+          startingBalance
+        )
+      : null;
+
     const data = {
       dateStr: raw.dateStr,
       user: include.includes("profile") ? sanitizeForExport("profile", raw.user) : null,
       income: include.includes("income") ? sanitizeForExport("income", raw.income) : raw.income,
       subscriptions: include.includes("subscriptions") ? sanitizeForExport("subscriptions", raw.subscriptions) : raw.subscriptions,
-      expenses: include.includes("expenses") ? sanitizeForExport("expenses", raw.expenses) : raw.expenses,
+      expenses: include.includes("expenses") ? expensesSanitized : raw.expenses,
+      expenses_summary: expensesSummary,
       goals: include.includes("goals") ? sanitizeForExport("goals", raw.goals) : raw.goals,
       allocations: include.includes("allocations") ? sanitizeForExport("allocations", raw.allocations) : raw.allocations,
       transactions: include.includes("transactions") ? sanitizeForExport("transactions", raw.transactions) : raw.transactions,
@@ -133,7 +205,10 @@ export async function POST(request: Request) {
       if (include.includes("profile")) payload.user = data.user;
       if (include.includes("income")) payload.income_sources = data.income;
       if (include.includes("subscriptions")) payload.subscriptions = data.subscriptions;
-      if (include.includes("expenses")) payload.expenses = data.expenses;
+      if (include.includes("expenses")) {
+        payload.expenses = data.expenses;
+        if (data.expenses_summary) payload.expenses_summary = data.expenses_summary;
+      }
       if (include.includes("goals")) payload.goals = data.goals;
       if (include.includes("allocations")) payload.allocations = data.allocations;
       if (include.includes("transactions")) payload.transactions = data.transactions;
@@ -180,10 +255,10 @@ export async function POST(request: Request) {
         content: toCsv(rowsToCsvRows(subscriptionsRows as Record<string, unknown>[])),
       });
     }
-    if (include.includes("expenses") && expensesRows.length > 0) {
+    if (include.includes("expenses") && data.expenses_summary != null) {
       csvFiles.push({
         name: `expenses-${data.dateStr}.csv`,
-        content: toCsv(rowsToCsvRows(expensesRows as Record<string, unknown>[])),
+        content: buildExpensesExportCsv(expensesRows as Record<string, unknown>[], data.expenses_summary),
       });
     }
     if (include.includes("goals") && goalsRows.length > 0) {
@@ -195,13 +270,19 @@ export async function POST(request: Request) {
     if (include.includes("allocations") && allocationsRows.length > 0) {
       csvFiles.push({
         name: `allocations-${data.dateStr}.csv`,
-        content: toCsv(rowsToCsvRows(allocationsRows as Record<string, unknown>[])),
+        content: toCsvColumns(
+          (allocationsRows as Record<string, unknown>[]).map((r) => pickCsvRow(r, [...ALLOCATIONS_CSV_COLUMNS])),
+          [...ALLOCATIONS_CSV_COLUMNS]
+        ),
       });
     }
     if (include.includes("transactions") && transactionsRows.length > 0) {
       csvFiles.push({
         name: `transactions-${data.dateStr}.csv`,
-        content: toCsv(rowsToCsvRows(transactionsRows as Record<string, unknown>[])),
+        content: toCsvColumns(
+          (transactionsRows as Record<string, unknown>[]).map((r) => pickCsvRow(r, [...TRANSACTIONS_CSV_COLUMNS])),
+          [...TRANSACTIONS_CSV_COLUMNS]
+        ),
       });
     }
 
@@ -211,9 +292,6 @@ export async function POST(request: Request) {
     }
     if (include.includes("subscriptions") && subscriptionsRows.length === 0) {
       csvFiles.push({ name: `subscriptions-${data.dateStr}.csv`, content: toCsv([]) });
-    }
-    if (include.includes("expenses") && expensesRows.length === 0) {
-      csvFiles.push({ name: `expenses-${data.dateStr}.csv`, content: toCsv([]) });
     }
     if (include.includes("goals") && goalsRows.length === 0) {
       csvFiles.push({ name: `goals-${data.dateStr}.csv`, content: toCsv([]) });

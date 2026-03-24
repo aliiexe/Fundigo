@@ -75,7 +75,7 @@ export const DEFAULT_EXPORT_OPTIONS: ExportOptions = {
 export const EXPORT_SAFE_FIELDS: Record<ExportSection, readonly string[]> = {
   profile: ["preferred_currency", "starting_balance", "profession", "primary_goal"],
   income: ["name", "amount", "currency", "frequency", "note"],
-  expenses: ["amount", "currency", "date"],
+  expenses: ["merchant", "amount", "currency", "date", "category", "recorded_at", "details"],
   subscriptions: ["service_name", "plan", "amount", "currency", "period", "next_billing_date", "paused_until"],
   goals: ["name", "target_amount", "current_amount", "currency", "deadline"],
   allocations: ["amount", "spend_pct", "save_pct", "invest_pct", "keep_pct", "accepted", "save_target", "currency", "reasoning"],
@@ -116,6 +116,39 @@ function escapeCsvCell(value: unknown): string {
     return `"${s.replace(/"/g, '""')}"`;
   }
   return s;
+}
+
+/** Slimmer CSV columns (JSON export keeps full `EXPORT_SAFE_FIELDS`). */
+export const EXPENSE_CSV_COLUMNS = ["merchant", "amount", "currency", "date", "category"] as const;
+export const ALLOCATIONS_CSV_COLUMNS = [
+  "amount",
+  "spend_pct",
+  "save_pct",
+  "invest_pct",
+  "keep_pct",
+  "accepted",
+  "save_target",
+  "currency",
+] as const;
+export const TRANSACTIONS_CSV_COLUMNS = ["type", "amount", "currency"] as const;
+
+export function pickCsvRow(row: Record<string, unknown>, columns: readonly string[]): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const c of columns) out[c] = row[c] ?? "";
+  return out;
+}
+
+/** Header row only (e.g. empty detail table). */
+export function csvHeaderOnly(columns: readonly string[]): string {
+  return columns.map(escapeCsvCell).join(",");
+}
+
+/** CSV with explicit column order (all rows must include at least these keys). */
+export function toCsvColumns(rows: Record<string, unknown>[], columns: readonly string[]): string {
+  if (rows.length === 0) return "";
+  const header = columns.map(escapeCsvCell).join(",");
+  const dataRows = rows.map((row) => columns.map((c) => escapeCsvCell(row[c])).join(","));
+  return [header, ...dataRows].join("\r\n");
 }
 
 /** Turn array of objects into a CSV string (header row + data rows). */
